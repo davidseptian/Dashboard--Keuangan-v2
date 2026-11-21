@@ -102,6 +102,7 @@ input[type=text],input[type=password]{background:var(--panel);color:var(--text);
     <div class="sub">Laba rugi, arus kas, dana marketplace dan rekonsiliasi · dibaca dari Master 2 · versi uji paralel, Catatan SHU lama tidak diubah</div>
   </div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <select id="selTahun" title="Tahun data" style="display:none"></select>
     <span class="badge" id="badge"><i></i><span id="badgeTxt">Belum terhubung</span></span>
     <button class="btn" id="cfgBtn">Sumber data</button>
   </div>
@@ -273,9 +274,15 @@ const KEL_ORDER=['Buku induk','Lokasi dana','Pembagian SHU','Lainnya'];
 const kn=()=>D?Object.keys(D.kas.kantong).sort((a,b)=>KEL_ORDER.indexOf(D.kas.kantong[a].kel)-KEL_ORDER.indexOf(D.kas.kantong[b].kel)):[];
 const kantongSaldo=n=>D.kas.kantong[n]?D.kas.kantong[n].saldo:0;
 const lokasi=()=>kn().filter(n=>D.kas.kantong[n].kel==='Lokasi dana');
-const nm10=()=>D.bulan.slice(0,10);
+const nm10=()=>D.bulan;
+const FULL={Jan:'Januari',Feb:'Februari',Mar:'Maret',Apr:'April',Mei:'Mei',Jun:'Juni',Jul:'Juli',Agu:'Agustus',Sep:'September',Okt:'Oktober',Nov:'November',Des:'Desember'};
+const LASTM=()=>D&&D.bulan.length?D.bulan[D.bulan.length-1]:'Okt';
+const LASTF=()=>FULL[LASTM()]||LASTM();
+const BERJALAN=()=>!!D&&D.tahun===new Date().getFullYear()&&D.bulan.length===new Date().getMonth()+1;
+const opsKosong=()=>!!D&&D.pnl.ops.length>0&&!D.pnl.ops[D.pnl.ops.length-1];
 function lr(){const P=D.pnl,M=nm10();return M.map((m,i)=>{const bers=P.bers[i],bp=P.bahan_pokok[i],pd=P.pendukung[i],ik=P.iklan[i],ops=P.ops[i],am=P.amal[i],al=P.alokasi[i],real=bp+pd+ik;
   return {m,bers,bp,pd,ik,ops,am,al,real,cogs:P.cogs[i],npk:bers-al-ops-am,out:bp+pd+ik+ops+am,rp:bers-bp-pd-ik-ops-am}})}
+const lrT=()=>{const L=lr();return opsKosong()&&L.length>1?L.slice(0,-1):L};
 const addK=(box,l,v,n)=>{const d=el('div','kpi');d.appendChild(el('div','l',l));d.appendChild(el('div','v',v));d.appendChild(el('div','n',n||''));box.appendChild(d)};
 const lastIdx=a=>{let i=a.length-1;while(i>=0&&!a[i])i--;return i};
 
@@ -289,17 +296,17 @@ function render(){
 }
 
 function rRing(){
-  const L=lr(),tB=sum(L.map(x=>x.bers)),tN=sum(L.map(x=>x.npk)),tR=sum(L.map(x=>x.rp));
+  const L=lrT(),tB=sum(L.map(x=>x.bers)),tN=sum(L.map(x=>x.npk)),tR=sum(L.map(x=>x.rp)),RG='Jan–'+L[L.length-1].m+(L.length<D.bulan.length?' (tanpa '+LASTM()+', biaya belum diinput)':'');
   const shu=kantongSaldo('SHU Total'),lok=sum(lokasi().map(kantongSaldo)),bc=sum(D.belum_cair_omzet);
   const box=$('#k-ring');
   addK(box,'Saldo SHU Total',rp(shu),'buku induk, per '+lblYM(D.kas.bulan[D.kas.bulan.length-1]));
   const sel=shu-lok;addK(box,'Selisih buku induk vs lokasi',rp(sel),Math.abs(sel)<1?'cocok':'perlu dicek (lihat Rekonsiliasi)');
-  addK(box,'Net profit kotor Jan–Okt',jt(tN),'margin '+pct(tN,tB)+' · anggaran bulanan');
-  addK(box,'Riil profit Jan–Okt',jt(tR),'margin '+pct(tR,tB)+' · semua pengeluaran riil');
+  addK(box,'Net profit kotor '+RG,jt(tN),'margin '+pct(tN,tB)+' · anggaran bulanan');
+  addK(box,'Riil profit '+RG,jt(tR),'margin '+pct(tR,tB)+' · semua pengeluaran riil');
   addK(box,'Order belum cair',rp(bc),num(sum(D.belum_cair_n))+' order · omzet kotor, estimasi');
   const sg=[{n:'Bahan pokok',c:'var(--b1)',v:L.map(x=>x.bp)},{n:'Bahan pendukung',c:'var(--b2)',v:L.map(x=>x.pd)},{n:'Iklan',c:'var(--b4)',v:L.map(x=>x.ik)},{n:'Operasional',c:'var(--b3)',v:L.map(x=>x.ops)},{n:'Amal',c:'var(--s1)',v:L.map(x=>x.am)},{n:'Riil profit',c:'var(--gold)',v:L.map(x=>Math.max(x.rp,0))}];
-  card('#c-r1','Ke mana pendapatan bersih pergi','Per bulan order, semua pengeluaran riil bulan itu. Tinggi batang = pendapatan bersih (riil profit negatif tampil 0). Okt belum lengkap: dana akhir Okt cair di November.',sg.map(s=>({n:s.n,c:s.c})),
-    stackedBars(L.map(x=>x.m),sg,{fmt:rp,axisFmt:axM,label:'Pembagian pendapatan bersih per bulan',zero:true,note:L.map(x=>(x.rp<0?'riil profit '+rp(x.rp):'')+(x.m==='Okt'?(x.rp<0?' · ':'')+'belum lengkap':''))}),
+  card('#c-r1','Ke mana pendapatan bersih pergi','Per bulan order, semua pengeluaran riil bulan itu. Tinggi batang = pendapatan bersih (riil profit negatif tampil 0). '+(BERJALAN()?LASTM()+' belum lengkap: bulan masih berjalan dan dana akhir bulan cair bulan berikutnya.':''),sg.map(s=>({n:s.n,c:s.c})),
+    stackedBars(L.map(x=>x.m),sg,{fmt:rp,axisFmt:axM,label:'Pembagian pendapatan bersih per bulan',zero:true,note:L.map(x=>(x.rp<0?'riil profit '+rp(x.rp):'')+((x.m===LASTM()&&BERJALAN())?(x.rp<0?' · ':'')+'belum lengkap':''))}),
     ()=>table(['Bulan',...sg.map(s=>s.n)],L.map((x,i)=>[x.m,...sg.map(s=>num(s.v[i]))])));
   const bl=D.kas.bulan,k=D.kas.kantong['SHU Total'];
   if(k){let sd=0;const sal=k.m.map(m=>{sd+=m[0]-m[1];return sd});const n=Math.min(12,bl.length);
@@ -308,28 +315,29 @@ function rRing(){
       ()=>table(['Bulan','Saldo'],bl.slice(-n).map((b,i)=>[lblYM(b),num(sal.slice(-n)[i])])))}
 }
 
-function shuMasukBulan(i){const k=D.kas.kantong['SHU Total'],sm=k&&k.katM['SHU Masuk'];if(!sm)return null;const ix=D.kas.bulan.indexOf('2026-'+('0'+(i+2)).slice(-2));return ix>=0?sm[ix]:null}
+function shuMasukBulan(i){const k=D.kas.kantong['SHU Total'],sm=k&&k.katM['SHU Masuk'];if(!sm)return null;const ix=D.kas.bulan.indexOf((D.tahun||2026)+'-'+('0'+(i+2)).slice(-2));return ix>=0?sm[ix]:null}
 function rLR(){
-  const L=lr(),sm=k=>sum(L.map(x=>x[k])),tB=sm('bers'),tN=sm('npk'),tR=sm('rp'),tA=sm('al'),tReal=sm('real');
+  const LA=lr(),L=lrT(),sm=k=>sum(L.map(x=>x[k])),tB=sm('bers'),tN=sm('npk'),tR=sm('rp'),tA=sm('al'),tReal=sm('real');
   const kb=$('#k-lr');
   addK(kb,'Pendapatan bersih',jt(tB),'marketplace + offline, setelah potongan marketplace');
   addK(kb,'Net profit kotor',jt(tN),'margin '+pct(tN,tB)+' · setelah anggaran bahan+iklan, operasional, amal');
   addK(kb,'Riil profit',jt(tR),'margin '+pct(tR,tB)+' · setelah semua pengeluaran riil');
   addK(kb,'Anggaran bahan + iklan',jt(tA),'tetap per bulan (Catatan SHU)');
   addK(kb,'Realisasi bahan + iklan',jt(tReal),(tReal>tA?'lebih besar ':'lebih kecil ')+jt(Math.abs(tReal-tA))+' dari anggaran');
-  const mark=x=>x.m+(x.m==='Okt'?' *':'');
+  const mark=x=>x.m+((x.m===LASTM()&&BERJALAN())?' *':'');
   const c1=$('#c-lr1');c1.appendChild(el('h3',null,'Net profit kotor per bulan'));c1.appendChild(el('div','d','Pendapatan bersih dikurangi anggaran bulanan bahan (sudah mencakup iklan), operasional, dan amal. Ini cara hitung SHU Kotor di Catatan SHU, tapi dengan pendapatan bersih riil dari Orders. Kolom terakhir = SHU Masuk yang dicatat di Buku_Kas pada bulan berikutnya (SHU bulan ini dibukukan bulan depan).'));
+  if(LA.every(x=>!x.al)){const na=el('div','note');na.innerHTML='<b>Anggaran bulanan belum diisi</b> untuk tahun '+(D.tahun||'')+', jadi kolom Net profit kotor belum bermakna (tanpa anggaran bahan dan iklan). Gunakan Riil profit di bawah.';c1.appendChild(na)}
   const w1=el('div','tw');
-  const sh=L.map((_,i)=>shuMasukBulan(i));const tS=sum(sh.map(v=>v||0));
+  const sh=LA.map((_,i)=>shuMasukBulan(i));const tS=sum(sh.slice(0,L.length).map(v=>v||0));const TL=L.length<LA.length?'Total Jan–'+L[L.length-1].m:'Total';
   w1.appendChild(table(['Bulan','Pendapatan bersih','Anggaran bahan + iklan','Operasional','Amal','Net profit kotor','Margin','SHU Masuk dibukukan'],
-    L.map((x,i)=>[mark(x),num(x.bers),num(x.al),num(x.ops),num(x.am),num(x.npk),pct(x.npk,x.bers),sh[i]==null?'—':num(sh[i])]),
-    ['Total',num(tB),num(tA),num(sm('ops')),num(sm('am')),num(tN),pct(tN,tB),num(tS)]));c1.appendChild(w1);
+    LA.map((x,i)=>[mark(x),num(x.bers),num(x.al),num(x.ops),num(x.am),num(x.npk),pct(x.npk,x.bers),sh[i]==null?'—':num(sh[i])]),
+    [TL,num(tB),num(tA),num(sm('ops')),num(sm('am')),num(tN),pct(tN,tB),num(tS)]));c1.appendChild(w1);
   const c2=$('#c-lr2');c2.appendChild(el('h3',null,'PnL riil profit per bulan'));c2.appendChild(el('div','d','Pendapatan bersih dikurangi semua pengeluaran yang benar-benar keluar pada bulan itu: pembelian bahan pokok, bahan pendukung, iklan, operasional, dan amal. Tanpa HPP, tanpa anggaran.'));
   const w2=el('div','tw');
   w2.appendChild(table(['Bulan','Pendapatan bersih','Bahan pokok','Bahan pendukung','Iklan','Operasional','Amal','Total pengeluaran','Riil profit','Margin'],
-    L.map(x=>[mark(x),num(x.bers),num(x.bp),num(x.pd),num(x.ik),num(x.ops),num(x.am),num(x.out),num(x.rp),pct(x.rp,x.bers)]),
-    ['Total',num(tB),num(sm('bp')),num(sm('pd')),num(sm('ik')),num(sm('ops')),num(sm('am')),num(sm('out')),num(tR),pct(tR,tB)]));c2.appendChild(w2);
-  const n=el('div','note');n.innerHTML='<b>* Oktober belum lengkap.</b> Dana pesanan akhir Oktober cair di November, sedangkan pengeluaran Oktober sudah penuh, jadi profit Oktober terlihat rendah. Pembelian bahan dihitung saat dibeli, bukan saat terjual, jadi riil profit bergerak mengikuti siklus belanja bahan.';c2.appendChild(n);
+    LA.map(x=>[mark(x),num(x.bers),num(x.bp),num(x.pd),num(x.ik),num(x.ops),num(x.am),num(x.out),num(x.rp),pct(x.rp,x.bers)]),
+    [TL,num(tB),num(sm('bp')),num(sm('pd')),num(sm('ik')),num(sm('ops')),num(sm('am')),num(sm('out')),num(tR),pct(tR,tB)]));c2.appendChild(w2);
+  const n=el('div','note');n.style.display=(BERJALAN()||opsKosong())?'':'none';n.innerHTML='<b>'+(BERJALAN()?'* '+LASTF()+' belum lengkap.':'Catatan.')+'</b> Dana pesanan akhir bulan cair di bulan berikutnya, jadi pendapatan bersih bulan berjalan terlihat lebih rendah dari akhirnya. Pembelian bahan dihitung saat dibeli, bukan saat terjual, jadi riil profit bergerak mengikuti siklus belanja bahan.'+(opsKosong()?' <b>Operasional '+LASTF()+' belum diinput</b> di Master 2, jadi net profit dan riil profit '+LASTF()+' terlihat terlalu tinggi sampai biayanya dicatat.':'');c2.appendChild(n);
   const ser=[{n:'Net profit kotor',c:'var(--s3)',v:L.map(x=>x.npk)},{n:'Riil profit',c:'var(--gold)',v:L.map(x=>x.rp)}];
   card('#c-lr3','Net profit kotor vs riil profit','Garis. Nilai negatif tampil 0 di garis (nilainya ada di tabel).',ser.map(s=>({n:s.n,c:s.c,line:true})),
     lineChart(L.map(x=>x.m),ser.map(s=>({...s,v:s.v.map(v=>Math.max(v,0))})),{fmt:rp,axisFmt:axM,label:'Net profit kotor dan riil profit',endLabels:true}),
@@ -395,7 +403,7 @@ function rMP(){
     stackedBars(M,sg,{fmt:rp,axisFmt:axM,label:'Dana cair per bulan'}),
     ()=>table(['Bulan',...sg.map(s=>s.n),'Total'],M.map((m,i)=>[m,...sg.map(s=>num(s.v[i])),num(tot[i])])));
   const bn=nm10().map((m,i)=>({m,n:D.belum_cair_n[i]||0,o:D.belum_cair_omzet[i]||0}));
-  card('#c-m2','Order belum cair per bulan order','Omzet kotor order yang statusnya belum cair. Oktober wajar tinggi karena dana cair di November.',null,
+  card('#c-m2','Order belum cair per bulan order','Omzet kotor order yang statusnya belum cair. '+LASTF()+' wajar tinggi karena ordernya baru berjalan dan dana belum dilepas marketplace.',null,
     stackedBars(bn.map(x=>x.m),[{n:'Omzet belum cair',c:'var(--gold)',v:bn.map(x=>x.o)}],{fmt:rp,axisFmt:axM,label:'Omzet order belum cair'}),
     ()=>table(['Bulan order','Jumlah order','Omzet kotor'],bn.map(x=>[x.m,num(x.n),num(x.o)])));
   const c=$('#c-m3');c.appendChild(el('h3',null,'Penyesuaian marketplace'));c.appendChild(el('div','d','Uang masuk atau keluar di luar order, dari tab Penyesuaian_Marketplace (nilai positif = uang masuk).'));
@@ -413,7 +421,7 @@ function rRek(){
   const tCair=sum(Object.values(D.cair).map(a=>sum(a))),tB=sum(L.map(x=>x.bers)),bp=sum(D.pnl.bahan_pokok),cg=sum(L.map(x=>x.cogs));
   const rows=[
     rek('Saldo SHU Total (buku induk) vs jumlah lokasi dana',sh,lk,'Dua cara membagi uang yang sama seharusnya sama besar. Selisih berarti ada mutasi yang tercatat di satu sisi saja, atau Pembagian SHU belum diimpor.'),
-    rek('Dana cair 2026 vs pendapatan bersih Jan–Okt',tCair,tB,'Wajar berbeda: dana cair mencakup order Des 2025 dan belum mencakup order akhir Okt (cair di November).','info'),
+    rek('Dana cair '+(D.tahun||2026)+' vs pendapatan bersih Jan–'+LASTM(),tCair,tB,'Wajar berbeda: dana cair mencakup order akhir 2025 (cair di Januari) dan belum mencakup order terakhir yang belum cair.','info'),
     rek('Pembelian bahan pokok vs COGS (HPP terjual)',bp,cg,'Bahan dibeli lebih besar dari COGS wajar bila stok bertambah. Selisih kecil menandakan HPP per SKU masuk akal.','info')
   ];
   const c1=$('#c-rk1');c1.appendChild(el('h3',null,'Pemeriksaan utama'));c1.appendChild(el('div','d','Status Cocok bila selisih kurang dari 0,1%. Baris Info hanya pembanding, bukan lulus atau gagal.'));
@@ -426,27 +434,31 @@ function rRek(){
   const c3=$('#c-rk3');c3.appendChild(el('h3',null,'Net profit kotor v2 vs SHU Masuk di Buku_Kas'));c3.appendChild(el('div','d','Net profit kotor bulan ini dibandingkan SHU Masuk yang dibukukan bulan berikutnya. Cocok bila selisih di bawah Rp3 jt (selisih kecil = pendapatan Catatan SHU sedikit lebih tinggi karena dana belum cair).'));
   const w3=el('div','tw');
   if(D.kas.kantong['SHU Total']&&D.kas.kantong['SHU Total'].katM['SHU Masuk']){
-    const r3=L.map((x,i)=>{const b=shuMasukBulan(i);if(b==null)return [x.m,num(x.npk),'—','—',chip('Info','n')];const d=x.npk-b,ok=Math.abs(d)<=3e6;return [x.m+(x.m==='Okt'?' *':''),num(x.npk),num(b),num(d),chip(ok?'Cocok':'Perlu dicek',ok?'ok':'x')]});
+    const r3=L.map((x,i)=>{const b=shuMasukBulan(i);if(b==null)return [x.m,num(x.npk),'—','—',chip('Info','n')];const d=x.npk-b,ok=Math.abs(d)<=3e6;return [x.m+((x.m===LASTM()&&BERJALAN())?' *':''),num(x.npk),num(b),num(d),chip(ok?'Cocok':'Perlu dicek',ok?'ok':'x')]});
     w3.appendChild(table(['Bulan','Net profit kotor v2','SHU Masuk dibukukan (bulan berikutnya)','Selisih','Status'],r3))}
   else w3.appendChild(el('div','empty','Kategori SHU Masuk belum ada di Buku_Kas.'));
   c3.appendChild(w3);
   const c4=$('#c-rk4');c4.appendChild(el('h3',null,'Anggaran vs realisasi pengeluaran bahan + iklan'));c4.appendChild(el('div','d','Anggaran bulanan sudah mencakup iklan. Realisasi = bahan pokok + bahan pendukung + iklan.'));
   const w4=el('div','tw');const ta=sum(L.map(x=>x.al)),tr=sum(L.map(x=>x.real));
-  w4.appendChild(table(['Bulan','Anggaran','Realisasi','Selisih (anggaran − realisasi)','Status'],L.map(x=>{const d=x.al-x.real;return [x.m,num(x.al),num(x.real),num(d),chip(d>=0?'Hemat':'Lewat anggaran',d>=0?'ok':'w')]}),['Total',num(ta),num(tr),num(ta-tr),'']));
+  w4.appendChild(table(['Bulan','Anggaran','Realisasi','Selisih (anggaran − realisasi)','Status'],L.map(x=>{const d=x.al-x.real;if(!x.al&&!x.real)return [x.m,'belum diisi','belum diisi','—',chip('Info','n')];return [x.m,num(x.al),num(x.real),num(d),chip(d>=0?'Hemat':'Lewat anggaran',d>=0?'ok':'w')]}),['Total',num(ta),num(tr),num(ta-tr),'']));
   c4.appendChild(w4);
 }
 $('#selK').onchange=e=>{KSEL=e.target.value;rKas()};$('#selY').onchange=e=>{YSEL=e.target.value;rKas()};
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));document.querySelectorAll('section.tab').forEach(s=>s.classList.toggle('on',s.id==='t-'+b.dataset.t));hideTip()});
 $('#cfgBtn').onclick=()=>$('#cfg').classList.toggle('on');
 try{const u=localStorage.getItem('hypotech_v2_api'),k=localStorage.getItem('hypotech_v2_key');if(u)$('#apiUrl').value=u;if(k)$('#apiKey').value=k}catch(e){}
+
+let TSEL='';try{TSEL=localStorage.getItem('hypotech_v2_tahun')||''}catch(e){}
+function isiTahun(d){const sel=document.getElementById('selTahun');if(!sel||!d||!d.tahun_tersedia)return;sel.innerHTML=d.tahun_tersedia.slice().reverse().map(y=>'<option value="'+y+'">'+y+'</option>').join('');sel.value=String(d.tahun);sel.style.display=d.tahun_tersedia.length>1?'':'none';const t=document.getElementById('thTxt');if(t)t.textContent=d.tahun;
+  if(!sel._b){sel._b=1;sel.onchange=()=>{TSEL=sel.value;try{localStorage.setItem('hypotech_v2_tahun',TSEL)}catch(e){}muat()}}}
 function jsonp(url,key){return new Promise((res,rej)=>{const cb='hkeu_'+Date.now();const s=document.createElement('script');const t=setTimeout(()=>{cl();rej(new Error('Waktu habis'))},60000);
   function cl(){clearTimeout(t);delete window[cb];s.remove()}
   window[cb]=d=>{cl();res(d)};s.onerror=()=>{cl();rej(new Error('Gagal memuat'))};
-  s.src=url+(url.includes('?')?'&':'?')+'action=keuangan&fresh=1&key='+encodeURIComponent(key)+'&callback='+cb;document.head.appendChild(s)})}
+  s.src=url+(url.includes('?')?'&':'?')+'action=keuangan&fresh=1&key='+encodeURIComponent(key)+(TSEL?'&tahun='+encodeURIComponent(TSEL):'')+'&callback='+cb;document.head.appendChild(s)})}
 async function muat(){const u=$('#apiUrl').value.trim(),k=$('#apiKey').value;if(!u||!k){$('#cfg').classList.add('on');return}
   $('#badgeTxt').textContent='Memuat…';const w=$('#warn');w.style.display='none';
   try{const d=await jsonp(u,k);if(d.error)throw new Error(d.error);D=d;try{localStorage.setItem('hypotech_v2_api',u);localStorage.setItem('hypotech_v2_key',k)}catch(e){}
-    $('#badge').classList.add('live');$('#cfg').classList.remove('on');$('#badgeTxt').textContent='Live dari Master 2 · '+(d.diperbarui||'');
+    $('#badge').classList.add('live');$('#cfg').classList.remove('on');$('#badgeTxt').textContent='Live dari Master 2 · '+(d.diperbarui||'');isiTahun(d);
     const g=d.diagnosa||{},m=[];if(g.kas_dilewati>0)m.push(g.kas_dilewati+' baris Buku_Kas dilewati karena tanggal atau kantong kosong');(g.galat||[]).forEach(x=>m.push(x));
     if(m.length){w.textContent='Periksa data: '+m.join('; ')+'.';w.style.display='block'}
     prepKas()}catch(e){$('#badgeTxt').textContent='Gagal: '+e.message}
