@@ -92,6 +92,29 @@ footer{margin-top:30px;color:var(--muted);font-size:12px;border-top:1px solid va
 .bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:12px 0}
 .empty{padding:24px;text-align:center;color:var(--muted)}
 input[type=text],input[type=password]{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:9px;padding:8px 11px;font:inherit;font-size:13px}
+.rgbtn{display:inline-flex;align-items:center;gap:10px;min-width:230px;justify-content:space-between}
+.cal{display:none;position:absolute;left:0;top:100%;margin-top:8px;z-index:45;background:#fff;color:#2b2b2b;border-radius:12px;box-shadow:0 14px 44px rgba(0,0,0,.6);padding:0;width:min(580px,calc(100vw - 24px))}
+.cal.on{display:block}
+.calw{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.calm{padding:12px 14px 6px}.calm+.calm{border-left:1px solid #e3e3e3}
+.calh{display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:14px;height:34px;color:#222}
+.calh button{background:none;border:0;color:#666;font-size:17px;cursor:pointer;padding:2px 7px;border-radius:6px;line-height:1}
+.calh button:hover{background:#f0f0f0;color:#111}.calh button:disabled{opacity:.25;cursor:default}
+.cald{display:grid;grid-template-columns:repeat(7,1fr);margin-top:6px}
+.cald i{font-style:normal;font-size:12px;font-weight:700;color:#444;text-align:center;padding:6px 0}
+.cald b{font-weight:500;font-size:13.5px;text-align:center;padding:0;height:34px;line-height:34px;position:relative;cursor:pointer;color:#1c1c1c;user-select:none;margin:1px 0}
+.cald b.o{background:#f3f3f3;color:#b9b9b9;cursor:default}
+.cald b.f{color:#c7c7c7;cursor:default}
+.cald b.in{background:#f6ecc4}
+.cald b.s,.cald b.e{background:var(--gold);color:#17140a;font-weight:700}
+.cald b.s{border-radius:6px 0 0 6px}.cald b.e{border-radius:0 6px 6px 0}.cald b.s.e{border-radius:6px}
+.cald b.td::after{content:"";position:absolute;left:50%;bottom:3px;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:var(--gold)}
+.cald b:not(.o):not(.f):not(.s):not(.e):hover{background:#efe3b0}
+.calf{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px 12px;border-top:1px solid #e3e3e3}
+.calq{display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:13px;font-weight:600}
+.calq a{color:#8a6d00;cursor:pointer}.calq a:hover{text-decoration:underline}.calq .sub{color:#b00020;font-weight:500}
+@media(max-width:640px){.calw{grid-template-columns:1fr}.calm+.calm{border-left:0;border-top:1px solid #e3e3e3}}
+.scope{font-size:12px;color:var(--text-2);margin:6px 0 0}
 </style>
 </head>
 <body>
@@ -102,7 +125,6 @@ input[type=text],input[type=password]{background:var(--panel);color:var(--text);
     <div class="sub">Laba rugi, arus kas, dana marketplace dan rekonsiliasi · dibaca dari Master 2 · versi uji paralel, Catatan SHU lama tidak diubah</div>
   </div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-    <select id="selTahun" title="Tahun data" style="display:none"></select>
     <span class="badge" id="badge"><i></i><span id="badgeTxt">Belum terhubung</span></span>
     <button class="btn" id="cfgBtn">Sumber data</button>
   </div>
@@ -114,6 +136,16 @@ input[type=text],input[type=password]{background:var(--panel);color:var(--text);
   <button class="btn" id="resetBtn">Putuskan &amp; hapus kunci</button>
 </div>
 <div id="warn" class="note" style="display:none"></div>
+<div class="filters" style="position:relative">
+  <label>Periode</label>
+  <button class="btn rgbtn" id="rgBtn" type="button" aria-haspopup="dialog"><span id="rgTxt">Pilih tanggal</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></button>
+  <div class="chips" id="presets"></div>
+  <div class="cal" id="cal" role="dialog" aria-label="Pilih rentang tanggal">
+    <div class="calw" id="calw"></div>
+    <div class="calf"><div class="calq"><a id="qMing">Minggu ini</a><a id="qBln">Bulan ini</a><span class="sub" id="calMsg"></span></div><button class="btn gold" id="calOk" type="button">OK</button></div>
+  </div>
+</div>
+<div class="scope" id="scopeBar"></div>
 <nav class="tabs" id="tabs">
   <button data-t="ring" class="on">Ringkasan</button>
   <button data-t="lr">Laba Rugi</button>
@@ -141,12 +173,14 @@ input[type=text],input[type=password]{background:var(--panel);color:var(--text);
     <label style="margin-left:10px">Tampilan</label><select id="selY"></select>
   </div>
   <div class="kpis" id="k-kas"></div>
+  <div class="card" style="margin-top:14px" id="c-k0"></div>
   <div class="grid2"><div class="card" id="c-k1"></div><div class="card" id="c-k2"></div></div>
   <div class="grid2"><div class="card" id="c-k3"></div><div class="card" id="c-k4"></div></div>
 </section>
 
 <section class="tab" id="t-mp">
   <div class="kpis" id="k-mp"></div>
+  <div class="card" style="margin-top:14px" id="c-m0"></div>
   <div class="grid2"><div class="card" id="c-m1"></div><div class="card" id="c-m2"></div></div>
   <div class="card" style="margin-top:14px" id="c-m3"></div>
 </section>
@@ -279,8 +313,9 @@ const nm10=()=>D.bulan;
 const FULL={Jan:'Januari',Feb:'Februari',Mar:'Maret',Apr:'April',Mei:'Mei',Jun:'Juni',Jul:'Juli',Agu:'Agustus',Sep:'September',Okt:'Oktober',Nov:'November',Des:'Desember'};
 const LASTM=()=>D&&D.bulan.length?D.bulan[D.bulan.length-1]:'Okt';
 const LASTF=()=>FULL[LASTM()]||LASTM();
-const BERJALAN=()=>!!D&&D.tahun===new Date().getFullYear()&&D.bulan.length===new Date().getMonth()+1;
-const opsKosong=()=>!!D&&D.pnl.ops.length>0&&!D.pnl.ops[D.pnl.ops.length-1];
+const BERJALAN=()=>!!D&&(D.berjalan!==undefined?D.berjalan:(D.tahun===new Date().getFullYear()&&D.bulan.length===new Date().getMonth()+1));
+const opsKosong=()=>!!D&&BERJALAN()&&D.pnl.ops.length>0&&!D.pnl.ops[D.pnl.ops.length-1];
+const PER=()=>D.bulan.length>1?D.bulan[0]+'–'+LASTM():LASTM();
 function lr(){const P=D.pnl,M=nm10();return M.map((m,i)=>{const bers=P.bers[i],bp=P.bahan_pokok[i],pd=P.pendukung[i],ik=P.iklan[i],ops=P.ops[i],am=P.amal[i],al=P.alokasi[i],real=bp+pd+ik;
   return {m,bers,bp,pd,ik,ops,am,al,real,cogs:P.cogs[i],npk:bers-al-ops-am,out:bp+pd+ik+ops+am,rp:bers-bp-pd-ik-ops-am}})}
 let INCNOV=true;
@@ -291,14 +326,14 @@ const lastIdx=a=>{let i=a.length-1;while(i>=0&&!a[i])i--;return i};
 function render(){
   const empty=!D;
   ['k-ring','k-lr','k-kas','k-mp'].forEach(i=>$('#'+i).replaceChildren());
-  ['c-r1','c-r2','c-lr1','c-lr2','c-lr3','c-lr4','c-k1','c-k2','c-k3','c-k4','c-m1','c-m2','c-m3','c-rk1','c-rk2','c-rk3'].forEach(i=>$('#'+i).replaceChildren());
+  ['c-k0','c-m0','c-r1','c-r2','c-lr1','c-lr2','c-lr3','c-lr4','c-k1','c-k2','c-k3','c-k4','c-m1','c-m2','c-m3','c-rk1','c-rk2','c-rk3'].forEach(i=>$('#'+i).replaceChildren());
   if(empty){$('#k-ring').appendChild(el('div','note','Belum ada data. Klik Sumber data, isi URL dan kunci, lalu Muat.'));$('#foot').textContent='';return}
   rRing();rLR();rKas();rMP();rRek();
   $('#foot').textContent='Sumber: Master 2 (Buku_Kas, Order_Pencairan, Penyesuaian_Marketplace, Orders, Biaya) dan HPP Sistem Otomatis. Dashboard ini hanya membaca; input tetap di Master 2.';
 }
 
 function rRing(){
-  const L=lrT(),tB=sum(L.map(x=>x.bers)),tN=sum(L.map(x=>x.npk)),tR=sum(L.map(x=>x.rp)),RG='Jan–'+L[L.length-1].m+(L.length<D.bulan.length?' (tanpa '+LASTM()+', biaya belum diinput)':(opsKosong()?' ('+LASTM()+' sementara, biaya belum diinput)':''));
+  const L=lrT(),tB=sum(L.map(x=>x.bers)),tN=sum(L.map(x=>x.npk)),tR=sum(L.map(x=>x.rp)),RGL=(L.length>1?L[0].m+'–':'')+L[L.length-1].m+(L.length<D.bulan.length?' (tanpa '+LASTM()+', biaya belum diinput)':(opsKosong()?' ('+LASTM()+' sementara, biaya belum diinput)':''));
   const shu=kantongSaldo('SHU Total'),lok=sum(lokasi().map(kantongSaldo)),bc=sum(D.belum_cair_omzet);
   const nb=$('#nvBar');nb.replaceChildren();
   if(opsKosong()){const bar=el('div','note');bar.style.cssText='display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0 0 12px';
@@ -307,8 +342,8 @@ function rRing(){
   const box=$('#k-ring');
   addK(box,'Saldo SHU Total',rp(shu),'buku induk, per '+lblYM(D.kas.bulan[D.kas.bulan.length-1]));
   const sel=shu-lok;addK(box,'Selisih buku induk vs lokasi',rp(sel),Math.abs(sel)<1?'cocok':'perlu dicek (lihat Rekonsiliasi)');
-  addK(box,'Net profit kotor '+RG,jt(tN),'margin '+pct(tN,tB)+' · anggaran bulanan');
-  addK(box,'Riil profit '+RG,jt(tR),'margin '+pct(tR,tB)+' · semua pengeluaran riil');
+  addK(box,'Net profit kotor '+RGL,jt(tN),'margin '+pct(tN,tB)+' · anggaran bulanan');
+  addK(box,'Riil profit '+RGL,jt(tR),'margin '+pct(tR,tB)+' · semua pengeluaran riil');
   addK(box,'Order belum cair',rp(bc),num(sum(D.belum_cair_n))+' order · omzet kotor, estimasi');
   const sg=[{n:'Bahan pokok',c:'var(--b1)',v:L.map(x=>x.bp)},{n:'Bahan pendukung',c:'var(--b2)',v:L.map(x=>x.pd)},{n:'Iklan',c:'var(--b4)',v:L.map(x=>x.ik)},{n:'Operasional',c:'var(--b3)',v:L.map(x=>x.ops)},{n:'Amal',c:'var(--s1)',v:L.map(x=>x.am)},{n:'Riil profit',c:'var(--gold)',v:L.map(x=>Math.max(x.rp,0))}];
   card('#c-r1','Ke mana pendapatan bersih pergi','Per bulan order, semua pengeluaran riil bulan itu. Tinggi batang = pendapatan bersih (riil profit negatif tampil 0). '+(BERJALAN()?LASTM()+' belum lengkap: bulan masih berjalan dan dana akhir bulan cair bulan berikutnya.':'')+(opsKosong()&&INCNOV?' Biaya '+LASTM()+' belum diinput, jadi bagian riil profit '+LASTM()+' membesar sementara.':''),sg.map(s=>({n:s.n,c:s.c})),
@@ -321,7 +356,7 @@ function rRing(){
       ()=>table(['Bulan','Saldo'],bl.slice(-n).map((b,i)=>[lblYM(b),num(sal.slice(-n)[i])])))}
 }
 
-function shuMasukBulan(i){const k=D.kas.kantong['SHU Total'],sm=k&&k.katM['SHU Masuk'];if(!sm)return null;const ix=D.kas.bulan.indexOf((D.tahun||2026)+'-'+('0'+(i+2)).slice(-2));return ix>=0?sm[ix]:null}
+function shuMasukBulan(i){const k=D.kas.kantong['SHU Total'],sm=k&&k.katM['SHU Masuk'];if(!sm)return null;const ym=D.ym&&D.ym[i];let nx;if(ym){const p=ym.split('-').map(Number);nx=p[1]===12?(p[0]+1)+'-01':p[0]+'-'+('0'+(p[1]+1)).slice(-2)}else nx=(D.tahun||2026)+'-'+('0'+(i+2)).slice(-2);const ix=D.kas.bulan.indexOf(nx);return ix>=0?sm[ix]:null}
 function rLR(){
   const LA=lr(),L=lrT(),sm=k=>sum(L.map(x=>x[k])),tB=sm('bers'),tN=sm('npk'),tR=sm('rp'),tA=sm('al'),tReal=sm('real');
   const kb=$('#k-lr');
@@ -332,9 +367,9 @@ function rLR(){
   addK(kb,'Realisasi bahan + iklan',jt(tReal),(tReal>tA?'lebih besar ':'lebih kecil ')+jt(Math.abs(tReal-tA))+' dari anggaran');
   const mark=x=>x.m+((x.m===LASTM()&&BERJALAN())?' *':'');
   const c1=$('#c-lr1');c1.appendChild(el('h3',null,'Net profit kotor per bulan'));c1.appendChild(el('div','d','Pendapatan bersih dikurangi anggaran bulanan bahan (sudah mencakup iklan), operasional, dan amal. Ini cara hitung SHU Kotor di Catatan SHU, tapi dengan pendapatan bersih riil dari Orders. Kolom terakhir = SHU Masuk yang dicatat di Buku_Kas pada bulan berikutnya (SHU bulan ini dibukukan bulan depan).'));
-  if(LA.every(x=>!x.al)){const na=el('div','note');na.innerHTML='<b>Anggaran bulanan belum diisi</b> untuk tahun '+(D.tahun||'')+', jadi kolom Net profit kotor belum bermakna (tanpa anggaran bahan dan iklan). Isi di tab Anggaran di Master 2, atau gunakan Riil profit di bawah.';c1.appendChild(na)}
+  if(LA.every(x=>!x.al)){const na=el('div','note');na.innerHTML='<b>Anggaran bulanan belum diisi</b> untuk periode ini, jadi kolom Net profit kotor belum bermakna (tanpa anggaran bahan dan iklan). Isi di tab Anggaran di Master 2, atau gunakan Riil profit di bawah.';c1.appendChild(na)}
   const w1=el('div','tw');
-  const sh=LA.map((_,i)=>shuMasukBulan(i));const tS=sum(sh.slice(0,L.length).map(v=>v||0));const TL=L.length<LA.length?'Total Jan–'+L[L.length-1].m:'Total';
+  const sh=LA.map((_,i)=>shuMasukBulan(i));const tS=sum(sh.slice(0,L.length).map(v=>v||0));const TL=L.length<LA.length?'Total '+(L.length>1?L[0].m+'–':'')+L[L.length-1].m:'Total';
   w1.appendChild(table(['Bulan','Pendapatan bersih','Anggaran bahan + iklan','Operasional','Amal','Net profit kotor','Margin','SHU Masuk dibukukan'],
     LA.map((x,i)=>[mark(x),num(x.bers),num(x.al),num(x.ops),num(x.am),num(x.npk),pct(x.npk,x.bers),sh[i]==null?'—':num(sh[i])]),
     [TL,num(tB),num(tA),num(sm('ops')),num(sm('am')),num(tN),pct(tN,tB),num(tS)]));c1.appendChild(w1);
@@ -363,7 +398,8 @@ function prepKas(){
   YSEL=[...sy.options].some(o=>o.value===oy)?oy:(yrs[0]||'ALL');sy.value=YSEL;
 }
 function rKas(){
-  ['k-kas','c-k1','c-k2','c-k3','c-k4'].forEach(i=>$('#'+i).replaceChildren());
+  ['k-kas','c-k0','c-k1','c-k2','c-k3','c-k4'].forEach(i=>$('#'+i).replaceChildren());
+  rKasExact();
   const k=D.kas.kantong[KSEL];if(!k)return;
   const bl=D.kas.bulan;let sd=0;const saldoAkhir=k.m.map(m=>{sd+=m[0]-m[1];return sd});
   let per,idxOf;
@@ -397,10 +433,11 @@ function rKas(){
 }
 
 function rMP(){
-  const chs=Object.keys(D.cair).sort(),last=Math.max(...chs.map(c=>lastIdx(D.cair[c])),0),M=BLN.slice(0,last+1);
+  rMPExact();
+  const chs=Object.keys(D.cair).sort(),last=Math.max(...chs.map(c=>lastIdx(D.cair[c])),0),M=(D.rentang&&D.rentang.mode==='rentang'?D.bulan:BLN).slice(0,last+1);
   const tot=M.map((_,i)=>sum(chs.map(c=>D.cair[c][i])));const tc=sum(tot);
   const kb=$('#k-mp');
-  addK(kb,'Dana cair Jan–'+M[M.length-1],jt(tc),'menurut tanggal dana dilepas');
+  addK(kb,'Dana cair '+(M.length>1?M[0]+'–':'')+M[M.length-1],jt(tc),'menurut tanggal dana dilepas');
   addK(kb,'Order belum cair',num(sum(D.belum_cair_n))+' order',jt(sum(D.belum_cair_omzet))+' omzet kotor (estimasi)');
   addK(kb,'Penyesuaian marketplace',rp(sum(D.penyesuaian.bulan)),'penggantian logistik, kompensasi, di luar order');
   addK(kb,'Iklan GMV Max (TikTok)',jt(sum(D.gmv_max)),'dari Biaya_Iklan');
@@ -427,7 +464,7 @@ function rRek(){
   const tCair=sum(Object.values(D.cair).map(a=>sum(a))),tB=sum(L.map(x=>x.bers)),bp=sum(D.pnl.bahan_pokok),cg=sum(L.map(x=>x.cogs));
   const rows=[
     rek('Saldo SHU Total (buku induk) vs jumlah lokasi dana',sh,lk,'Dua cara membagi uang yang sama seharusnya sama besar. Selisih berarti ada mutasi yang tercatat di satu sisi saja, atau Pembagian SHU belum diimpor.'),
-    rek('Dana cair '+(D.tahun||2026)+' vs pendapatan bersih Jan–'+LASTM(),tCair,tB,'Wajar berbeda: dana cair mencakup order akhir 2025 (cair di Januari) dan belum mencakup order terakhir yang belum cair.','info'),
+    rek('Dana cair '+PER()+' vs pendapatan bersih '+PER(),tCair,tB,'Wajar berbeda: dana cair mencakup order bulan sebelum periode (cair di awal periode) dan belum mencakup order terakhir yang belum cair.','info'),
     rek('Pembelian bahan pokok vs COGS (HPP terjual)',bp,cg,'Bahan dibeli lebih besar dari COGS wajar bila stok bertambah. Selisih kecil menandakan HPP per SKU masuk akal.','info')
   ];
   const c1=$('#c-rk1');c1.appendChild(el('h3',null,'Pemeriksaan utama'));c1.appendChild(el('div','d','Status Cocok bila selisih kurang dari 0,1%. Baris Info hanya pembanding, bukan lulus atau gagal.'));
@@ -449,29 +486,112 @@ function rRek(){
   w4.appendChild(table(['Bulan','Anggaran','Realisasi','Selisih (anggaran − realisasi)','Status'],L.map(x=>{const d=x.al-x.real;if(!x.al&&!x.real)return [x.m,'belum diisi','belum diisi','—',chip('Info','n')];return [x.m,num(x.al),num(x.real),num(d),chip(d>=0?'Hemat':'Lewat anggaran',d>=0?'ok':'w')]}),['Total',num(ta),num(tr),num(ta-tr),'']));
   c4.appendChild(w4);
 }
+/* ---------- kalender periode ---------- */
+const BLN_P=BLN;
+const pad2=n=>String(n).padStart(2,'0'),isoD=d=>d.getFullYear()+'-'+pad2(d.getMonth()+1)+'-'+pad2(d.getDate());
+const parseD=s=>{const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);return m?new Date(+m[1],+m[2]-1,+m[3]):null};
+const fmtD=s=>{const d=parseD(s);return d?d.getDate()+' '+BLN_P[d.getMonth()]+' '+d.getFullYear():'–'};
+const TODAY=new Date(new Date().getFullYear(),new Date().getMonth(),new Date().getDate());
+let RG=null; /* {dari,sampai} pilihan pengguna; null = bawaan server */
+function setRgTxt(){const r=D&&D.rentang;$('#rgTxt').textContent=r?fmtD(r.dari)+'  –  '+fmtD(r.sampai):'Pilih tanggal'}
+/* ----- kalender dua bulan ----- */
+let calView=null,calA=null,calB=null,calHover=null;
+function bukaCal(){const r=D&&D.rentang;calA=r?parseD(r.dari):null;calB=r?parseD(r.sampai):null;calHover=null;const e=calB||TODAY;calView=new Date(e.getFullYear(),e.getMonth()-1,1);$('#calMsg').textContent='';rCal();$('#cal').classList.add('on')}
+function tutupCal(){$('#cal').classList.remove('on')}
+function rCal(){
+  const w=$('#calw');w.replaceChildren();
+  [0,1].forEach(k=>{const v=new Date(calView.getFullYear(),calView.getMonth()+k,1),box=el('div','calm');
+    const h=el('div','calh');
+    const nav=(t,f,dis)=>{const b=el('button',null,t);b.type='button';b.onclick=f;if(dis)b.disabled=true;return b};
+    if(k===0){const l=el('span');l.appendChild(nav('«',()=>{calView=new Date(calView.getFullYear()-1,calView.getMonth(),1);rCal()}));l.appendChild(nav('‹',()=>{calView=new Date(calView.getFullYear(),calView.getMonth()-1,1);rCal()}));h.appendChild(l)}else h.appendChild(el('span'));
+    h.appendChild(el('span',null,pad2(v.getMonth()+1)+' / '+v.getFullYear()));
+    if(k===1){const r=el('span');r.appendChild(nav('›',()=>{calView=new Date(calView.getFullYear(),calView.getMonth()+1,1);rCal()}));r.appendChild(nav('»',()=>{calView=new Date(calView.getFullYear()+1,calView.getMonth(),1);rCal()}));h.appendChild(r)}else h.appendChild(el('span'));
+    box.appendChild(h);
+    const g=el('div','cald');['Sen','Sel','Rab','Kam','Jum','Sab','Min'].forEach(n=>g.appendChild(el('i',null,n)));
+    const first=new Date(v.getFullYear(),v.getMonth(),1),off=(first.getDay()+6)%7;
+    for(let i=0;i<42;i++){const d=new Date(v.getFullYear(),v.getMonth(),1-off+i),c=el('b',null,pad2(d.getDate()));
+      const lain=d.getMonth()!==v.getMonth(),fut=d>TODAY;
+      if(lain){c.className='o'}else if(fut){c.className='f'}
+      else{const lo=calA,hi=calB||(calA&&calHover&&calHover>=calA?calHover:null);
+        if(lo&&d.getTime()===lo.getTime())c.classList.add('s');if(hi&&d.getTime()===hi.getTime())c.classList.add('e');if(lo&&hi&&d>lo&&d<hi)c.classList.add('in');
+        if(d.getTime()===TODAY.getTime())c.classList.add('td');
+        c.onclick=()=>pilihHari(d);c.onmouseenter=()=>{if(calA&&!calB&&(!calHover||calHover.getTime()!==d.getTime())){calHover=d;rCal()}}}
+      g.appendChild(c)}
+    box.appendChild(g);w.appendChild(box)})}
+function rCalSoft(){/* hanya perbarui kelas, tanpa membangun ulang (agar hover mulus) */
+  document.querySelectorAll('#calw .cald b').forEach(()=>{});rCal()}
+function pilihHari(d){$('#calMsg').textContent='';
+  if(!calA||(calA&&calB)){calA=d;calB=null;calHover=null}
+  else{if(d<calA){calB=calA;calA=d}else calB=d}
+  rCal()}
+$('#cal').addEventListener('click',e=>e.stopPropagation()); /* elemen tanggal dibangun ulang saat diklik: cegah klik dianggap di luar kalender */
+$('#rgBtn').onclick=e=>{e.stopPropagation();$('#cal').classList.contains('on')?tutupCal():bukaCal()};
+document.addEventListener('click',e=>{if(!e.target.closest('#cal')&&!e.target.closest('#rgBtn'))tutupCal()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')tutupCal()});
+$('#qMing').onclick=()=>{const d=new Date(TODAY),off=(d.getDay()+6)%7;calA=new Date(d.getFullYear(),d.getMonth(),d.getDate()-off);calB=new Date(TODAY);calView=new Date(calA.getFullYear(),calA.getMonth(),1);rCal()};
+$('#qBln').onclick=()=>{calA=new Date(TODAY.getFullYear(),TODAY.getMonth(),1);calB=new Date(TODAY);calView=new Date(TODAY.getFullYear(),TODAY.getMonth()-1,1);rCal()};
+$('#calOk').onclick=()=>{if(!calA){$('#calMsg').textContent='Pilih tanggal mulai';return}const b=calB||calA;
+  if((b.getFullYear()-calA.getFullYear())*12+b.getMonth()-calA.getMonth()+1>36){$('#calMsg').textContent='Maksimal 36 bulan';return}
+  terapkan(isoD(calA),isoD(b))};
+function terapkan(dari,sampai){RG={dari,sampai};tutupCal();muat()}
+function bangunPreset(){const bx=$('#presets');bx.replaceChildren();const r=D&&D.rentang,mn=(r&&r.min)||isoD(new Date(TODAY.getFullYear(),0,1));
+  const y=TODAY.getFullYear(),m=TODAY.getMonth();
+  const pre=[['Bulan ini',isoD(new Date(y,m,1)),isoD(TODAY)],['Bulan lalu',isoD(new Date(y,m-1,1)),isoD(new Date(y,m,0))],['3 bulan terakhir',isoD(new Date(y,m-2,1)),isoD(TODAY)],['Tahun ini',y+'-01-01',isoD(TODAY)],['Tahun lalu',(y-1)+'-01-01',(y-1)+'-12-31'],['Semua',mn,isoD(TODAY)]];
+  pre.forEach(([n,a,b])=>{const c=el('button','chip',n);c.onclick=()=>terapkan(a,b);bx.appendChild(c)})}
+/* ---------- kartu per tanggal tepat (hanya saat rentang dipilih) ---------- */
+const hariList=(a,b)=>{const o=[];for(let d=parseD(a),e=parseD(b);d<=e;d=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1))o.push(isoD(d));return o};
+const lblH=t=>{const d=parseD(t);return d.getDate()+' '+BLN[d.getMonth()]};
+const thin=(L,n)=>L.map((l,i)=>L.length>n?(i%Math.ceil(L.length/n)===0?l:''):l);
+function rKasExact(){
+  const c=$('#c-k0');c.replaceChildren();const E=D.exact;if(!E)return;const k=E.kas[KSEL];
+  const ttl='Mutasi periode · '+KSEL,ds=fmtD(E.dari)+' – '+fmtD(E.sampai)+' ('+E.n_hari+' hari), dihitung per tanggal tepat. Saldo awal = saldo sebelum tanggal pertama.';
+  if(!k){card('#c-k0',ttl,ds,null,null,null);c.appendChild(el('div','empty','Tidak ada catatan untuk kantong ini sampai akhir periode.'));return}
+  let rows=null,svg=null,leg=null;
+  if(E.per_hari&&k.harian){let sd=k.awal;const hs=hariList(E.dari,E.sampai),ser=[{n:'Masuk',c:'var(--s3)',v:hs.map(h=>(k.harian[h]||[0,0])[0])},{n:'Keluar',c:'var(--s1)',v:hs.map(h=>(k.harian[h]||[0,0])[1])}];
+    rows=hs.filter(h=>k.harian[h]).map(h=>{const x=k.harian[h];sd+=x[0]-x[1];return [fmtD(h),num(x[0]),num(x[1]),num(sd)]});
+    svg=stackedBars(thin(hs.map(lblH),16),ser,{fmt:rp,axisFmt:axM,label:'Uang masuk dan keluar per hari'});leg=ser.map(x=>({n:x.n,c:x.c}))}
+  card('#c-k0',ttl,ds,leg,svg,rows?()=>table(['Tanggal','Masuk','Keluar','Saldo akhir hari'],rows):null);
+  const kp=el('div','kpis');kp.style.margin='12px 0 0';addK(kp,'Saldo awal',rp(k.awal),'sebelum '+fmtD(E.dari));addK(kp,'Masuk',rp(k.masuk),'');addK(kp,'Keluar',rp(k.keluar),'');addK(kp,'Saldo akhir',rp(k.akhir),'per '+fmtD(E.sampai));c.appendChild(kp);
+  const kats=[...new Set([...Object.keys(k.katM),...Object.keys(k.katK)])].map(kt=>[kt,k.katM[kt]||0,k.katK[kt]||0]).sort((a,b)=>b[2]-a[2]||b[1]-a[1]);
+  if(kats.length){const w=el('div','tw');w.style.marginTop='12px';w.appendChild(table(['Kategori','Masuk','Keluar','Bersih'],kats.map(x=>[x[0],num(x[1]),num(x[2]),num(x[1]-x[2])]),['Total',num(k.masuk),num(k.keluar),num(k.masuk-k.keluar)]));c.appendChild(w)}
+}
+function rMPExact(){
+  const c=$('#c-m0');c.replaceChildren();const E=D.exact;if(!E)return;const chs=Object.keys(E.cair).sort(),tot=sum(chs.map(x=>E.cair[x]));
+  const ttl='Dana cair pada periode',ds=fmtD(E.dari)+' – '+fmtD(E.sampai)+' ('+E.n_hari+' hari), menurut tanggal dana dilepas marketplace.';
+  let svg=null,leg=null,tf=null;
+  if(E.per_hari&&tot){const hs=hariList(E.dari,E.sampai),sg=chs.map(ch=>({n:ch.charAt(0)+ch.slice(1).toLowerCase(),c:CHC[ch]||'var(--s4)',v:hs.map(h=>(E.cair_harian[h]||{})[ch]||0)}));
+    svg=stackedBars(thin(hs.map(lblH),16),sg,{fmt:rp,axisFmt:axM,label:'Dana cair per hari'});leg=sg.map(x=>({n:x.n,c:x.c}));
+    tf=()=>table(['Tanggal',...sg.map(x=>x.n),'Total'],hs.map((h,i)=>[fmtD(h),...sg.map(x=>num(x.v[i])),num(sum(sg.map(x=>x.v[i])))]).filter(r=>r[r.length-1]!=='0'))}
+  card('#c-m0',ttl,ds,leg,svg,tf);
+  const kp=el('div','kpis');kp.style.margin='12px 0 0';addK(kp,'Total dana cair',rp(tot),'periode terpilih');chs.forEach(ch=>addK(kp,ch.charAt(0)+ch.slice(1).toLowerCase(),rp(E.cair[ch]),pct(E.cair[ch],tot)+' dari total'));addK(kp,'Penyesuaian marketplace',rp(E.penyesuaian.total),'di luar order, periode terpilih');c.appendChild(kp);
+  const js=Object.entries(E.penyesuaian.jenis).sort((a,b)=>b[1]-a[1]);
+  if(js.length){const w=el('div','tw');w.style.marginTop='12px';w.appendChild(table(['Jenis penyesuaian','Jumlah'],js.map(x=>[x[0],num(x[1])]),['Total',num(E.penyesuaian.total)]));c.appendChild(w)}
+}
+function scopeBar(){
+  const b=$('#scopeBar');b.textContent='';const r=D&&D.rentang;if(!r||r.mode!=='rentang'){return}
+  const d=BLN[+r.bulan_dari.slice(5)-1]+' '+r.bulan_dari.slice(0,4),s2=BLN[+r.bulan_sampai.slice(5)-1]+' '+r.bulan_sampai.slice(0,4);
+  b.textContent='Ringkasan, Laba Rugi, dan Rekonsiliasi memakai bulan penuh ('+(d===s2?d:d+' – '+s2)+') karena biaya dicatat per bulan. Arus Kas dan Dana Marketplace memakai tanggal tepat: '+fmtD(r.dari)+' – '+fmtD(r.sampai)+'.';
+}
 $('#selK').onchange=e=>{KSEL=e.target.value;rKas()};$('#selY').onchange=e=>{YSEL=e.target.value;rKas()};
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));document.querySelectorAll('section.tab').forEach(s=>s.classList.toggle('on',s.id==='t-'+b.dataset.t));hideTip()});
 $('#cfgBtn').onclick=()=>$('#cfg').classList.toggle('on');
 try{const u=localStorage.getItem('hypotech_v2_api'),k=localStorage.getItem('hypotech_v2_key');if(u)$('#apiUrl').value=u;if(k)$('#apiKey').value=k}catch(e){}
 
-let TSEL='';try{TSEL=localStorage.getItem('hypotech_v2_tahun')||''}catch(e){}
-function isiTahun(d){const sel=document.getElementById('selTahun');if(!sel||!d||!d.tahun_tersedia)return;sel.innerHTML=d.tahun_tersedia.slice().reverse().map(y=>'<option value="'+y+'">'+y+'</option>').join('');sel.value=String(d.tahun);sel.style.display=d.tahun_tersedia.length>1?'':'none';const t=document.getElementById('thTxt');if(t)t.textContent=d.tahun;
-  if(!sel._b){sel._b=1;sel.onchange=()=>{TSEL=sel.value;try{localStorage.setItem('hypotech_v2_tahun',TSEL)}catch(e){}muat()}}}
 function jsonp(url,key){return new Promise((res,rej)=>{const cb='hkeu_'+Date.now();const s=document.createElement('script');const t=setTimeout(()=>{cl();rej(new Error('Waktu habis'))},60000);
   function cl(){clearTimeout(t);delete window[cb];s.remove()}
   window[cb]=d=>{cl();res(d)};s.onerror=()=>{cl();rej(new Error('Gagal memuat'))};
-  s.src=url+(url.includes('?')?'&':'?')+'action=keuangan&fresh=1&key='+encodeURIComponent(key)+(TSEL?'&tahun='+encodeURIComponent(TSEL):'')+'&callback='+cb;document.head.appendChild(s)})}
+  s.src=url+(url.includes('?')?'&':'?')+'action=keuangan&fresh=1&key='+encodeURIComponent(key)+(RG?'&dari='+encodeURIComponent(RG.dari)+'&sampai='+encodeURIComponent(RG.sampai):'')+'&callback='+cb;document.head.appendChild(s)})}
 async function muat(){const u=$('#apiUrl').value.trim(),k=$('#apiKey').value;if(!u||!k){$('#cfg').classList.add('on');return}
   $('#badgeTxt').textContent='Memuat…';const w=$('#warn');w.style.display='none';
   try{const d=await jsonp(u,k);if(d.error)throw new Error(d.error);D=d;try{localStorage.setItem('hypotech_v2_api',u);localStorage.setItem('hypotech_v2_key',k)}catch(e){}
-    $('#badge').classList.add('live');$('#cfg').classList.remove('on');$('#badgeTxt').textContent='Live dari Master 2 · '+(d.diperbarui||'');isiTahun(d);
+    $('#badge').classList.add('live');$('#cfg').classList.remove('on');$('#badgeTxt').textContent='Live dari Master 2 · '+(d.diperbarui||'');setRgTxt();bangunPreset();scopeBar();
     const g=d.diagnosa||{},m=[];if(g.kas_dilewati>0)m.push(g.kas_dilewati+' baris Buku_Kas dilewati karena tanggal atau kantong kosong');(g.galat||[]).forEach(x=>m.push(x));
     if(m.length){w.textContent='Periksa data: '+m.join('; ')+'.';w.style.display='block'}
     prepKas()}catch(e){$('#badgeTxt').textContent='Gagal: '+e.message}
   render()}
 $('#loadBtn').onclick=muat;
 $('#resetBtn').onclick=()=>{try{localStorage.removeItem('hypotech_v2_key');localStorage.removeItem('hypotech_v2_api')}catch(e){}$('#apiKey').value='';D=null;$('#badge').classList.remove('live');$('#badgeTxt').textContent='Belum terhubung';render()};
-render();
+bangunPreset();render();
 if($('#apiUrl').value&&$('#apiKey').value)muat();
 setInterval(()=>{if(!document.hidden&&$('#badge').classList.contains('live'))muat()},600000);
 
