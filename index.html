@@ -152,6 +152,7 @@ input[type=text],input[type=password]{background:var(--panel);color:var(--text);
   <button data-t="kas">Arus Kas</button>
   <button data-t="mp">Dana Marketplace</button>
   <button data-t="hp">Hutang &amp; Piutang</button>
+  <button data-t="pb">Pembagian SHU</button>
   <button data-t="rek">Rekonsiliasi</button>
 </nav>
 
@@ -192,6 +193,13 @@ input[type=text],input[type=password]{background:var(--panel);color:var(--text);
   <div class="card" style="margin-top:14px" id="c-h2"></div>
   <div class="card" style="margin-top:14px" id="c-h3"></div>
   <div class="card" style="margin-top:14px" id="c-h4"></div>
+</section>
+<section class="tab" id="t-pb">
+  <div class="kpis" id="k-pb"></div>
+  <div class="card" style="margin-top:14px" id="c-p1"></div>
+  <div class="card" style="margin-top:14px" id="c-p2"></div>
+  <div class="card" style="margin-top:14px" id="c-p3"></div>
+  <div class="card" style="margin-top:14px" id="c-p4"></div>
 </section>
 <section class="tab" id="t-rek">
   <div class="card" style="margin-top:14px" id="c-rk1"></div>
@@ -333,10 +341,10 @@ const lastIdx=a=>{let i=a.length-1;while(i>=0&&!a[i])i--;return i};
 
 function render(){
   const empty=!D;
-  ['k-ring','k-lr','k-kas','k-mp','k-hp'].forEach(i=>$('#'+i).replaceChildren());
-  ['c-k0','c-m0','c-r1','c-r2','c-lr1','c-lr2','c-lr3','c-lr4','c-k1','c-k2','c-k3','c-k4','c-m1','c-m2','c-m3','c-rk1','c-rk2','c-rk3','c-rk4','c-h1','c-h2','c-h3','c-h4'].forEach(i=>$('#'+i).replaceChildren());
+  ['k-ring','k-lr','k-kas','k-mp','k-hp','k-pb'].forEach(i=>$('#'+i).replaceChildren());
+  ['c-k0','c-m0','c-r1','c-r2','c-lr1','c-lr2','c-lr3','c-lr4','c-k1','c-k2','c-k3','c-k4','c-m1','c-m2','c-m3','c-rk1','c-rk2','c-rk3','c-rk4','c-h1','c-h2','c-h3','c-h4','c-p1','c-p2','c-p3','c-p4'].forEach(i=>$('#'+i).replaceChildren());
   if(empty){$('#k-ring').appendChild(el('div','note','Belum ada data. Klik Sumber data, isi URL dan kunci, lalu Muat.'));$('#foot').textContent='';return}
-  rRing();rLR();rKas();rMP();rHP();rRek();
+  rRing();rLR();rKas();rMP();rHP();rPB();rRek();
   $('#foot').textContent='Sumber: Master 2 (Buku_Kas, Order_Pencairan, Penyesuaian_Marketplace, Orders, Biaya) dan HPP Sistem Otomatis. Dashboard ini hanya membaca; input tetap di Master 2.';
 }
 
@@ -492,6 +500,35 @@ function rHP(){
   const w4=el('div','tw');
   w4.appendChild(H.rekon.length?table(['Jenis','Kantong Buku_Kas','Hutang_Piutang','Buku_Kas','Selisih','Status'],H.rekon.map(x=>{const ok=Math.abs(x.selisih)<1;return [x.jenis,x.kantong,num(x.hp),num(x.kas),num(x.selisih),chip(ok?'Cocok':'Perlu dicek',ok?'ok':'x')]})):el('div','empty','Belum ada pembanding.'));c4.appendChild(w4);
   const n=el('div','note');n.innerHTML='<b>Cara baca:</b> Hutang Bahan dan Hutang Lain belum punya kantong di Buku_Kas (hanya pembayaran yang tercatat sebagai Keluar di kategori Hutang/Cicilan), jadi tidak dibandingkan. Bila selisih muncul di piutang, catat mutasi yang sama di Buku_Kas atau koreksi di Hutang_Piutang.';c4.appendChild(n);
+}
+
+/* ---------- Pembagian SHU: empat dana (posisi per hari ini, tidak mengikuti filter periode) ---------- */
+function rPB(){
+  const P=D.pbg,kb=$('#k-pb');if(!P)return;
+  if(!P.ada){const c=$('#c-p1');c.appendChild(el('h3',null,'Pembagian SHU'));c.appendChild(el('div','note','Belum ada data. Jalankan siapkanPembagianSHU() sekali di Apps Script (membuat tab Pembagian_SHU, mengisi saldo awal empat dana, dan membagi selisih ke SHU Total), lalu alokasikan SHU baru lewat Pusat Input.'));return}
+  const ok=P.selisih!==null&&Math.abs(P.selisih)<1&&!P.belum.n;
+  P.dana.forEach(x=>addK(kb,x.dana,jt(x.saldo),pct(x.saldo,P.total)+' dari total · target '+x.persen+'% SHU baru'));
+  addK(kb,'Total empat dana',jt(P.total),P.shu_total===null?'SHU Total belum terbaca':(ok?'sama dengan SHU Total':'SHU Total '+jt(P.shu_total)));
+  const c1=$('#c-p1');c1.appendChild(el('h3',null,'Saldo per dana'));c1.appendChild(el('div','d','Posisi per '+fmtD(P.hari)+', tidak mengikuti filter periode. Saldo = saldo awal + pembagian − pemakaian ± pindah dana ± koreksi. Persentase target berlaku untuk SHU baru yang dibagi.'));
+  const w1=el('div','tw');
+  const rows=P.dana.map(x=>[x.dana,x.persen+'%',num(x.saldo),pct(x.saldo,P.total),num(x.awal),num(x.pembagian),num(x.pemakaian?-x.pemakaian:0),num(x.pindah_masuk-x.pindah_keluar),num(x.koreksi)]);
+  const T=k=>num(sum(P.dana.map(x=>x[k])));
+  w1.appendChild(table(['Dana','Target','Saldo','Porsi','Saldo awal','Pembagian','Pemakaian','Pindah dana','Koreksi'],rows,['Total','100%',num(P.total),'100%',T('awal'),T('pembagian'),num(sum(P.dana.map(x=>x.pemakaian))?-sum(P.dana.map(x=>x.pemakaian)):0),num(sum(P.dana.map(x=>x.pindah_masuk-x.pindah_keluar))),T('koreksi')]));c1.appendChild(w1);
+  const bl=P.bulanan.map(b=>({l:lblYM(b.ym),b:b.pembagian,p:b.pemakaian}));
+  if(bl.length){const sr=[{n:'Pembagian SHU',c:'var(--s3)',v:bl.map(x=>x.b)},{n:'Pemakaian dana',c:'var(--s1)',v:bl.map(x=>x.p)}];
+    card('#c-p2','Pembagian dan pemakaian per bulan','Pembagian (SHU masuk ke dana) dibanding pemakaian dana, sejak saldo awal. Pindah dana dan koreksi tidak dihitung.',sr.map(x=>({n:x.n,c:x.c})),
+      stackedBars(bl.map(x=>x.l),sr,{fmt:rp,axisFmt:axM,label:'Pembagian dan pemakaian dana per bulan'}),()=>table(['Bulan','Pembagian','Pemakaian','Selisih'],bl.map(x=>[x.l,num(x.b),num(x.p),num(x.b-x.p)])))}
+  const c3=$('#c-p3');c3.appendChild(el('h3',null,'Cocokkan dengan SHU Total'));c3.appendChild(el('div','d','Jumlah empat dana dibandingkan dengan saldo kantong SHU Total di Buku_Kas. Selisih terjadi bila ada baris SHU baru yang belum dialokasikan, atau mutasi yang hanya tercatat di satu sisi.'));
+  const w3=el('div','tw');w3.appendChild(table(['Pembanding','Jumlah','Keterangan'],[
+    ['Total empat dana (Pembagian_SHU)',num(P.total),''],
+    ['Saldo SHU Total (Buku_Kas)',P.shu_total===null?'–':num(P.shu_total),''],
+    ['Selisih',P.selisih===null?'–':num(P.selisih),P.selisih===null?chip('Belum terbaca','w'):chip(ok?'Cocok':'Perlu dicek',ok?'ok':'x')],
+    ['Belum dialokasikan',num(P.belum.n)+' baris',P.belum.n?('masuk '+rp(P.belum.masuk)+', keluar '+rp(P.belum.keluar)):'semua baris sudah dialokasikan']],null));
+  c3.appendChild(w3);
+  if(P.belum.n){const n=el('div','note');n.innerHTML='<b>'+P.belum.n+' baris</b> di Buku_Kas belum dialokasikan ke dana. Buka <b>Pusat Input → Pembagian SHU</b>, cek usulan pembagian 25/25/35/15, lalu simpan.';c3.appendChild(n)}
+  const c4=$('#c-p4');c4.appendChild(el('h3',null,'Mutasi terbaru'));c4.appendChild(el('div','d','15 mutasi terakhir menurut tanggal (tanpa saldo awal).'));
+  const w4=el('div','tw');const tb=P.terbaru.slice(0,15);
+  w4.appendChild(tb.length?table(['Tanggal','Dana','Jenis','Keterangan','Masuk','Keluar'],tb.map(x=>[fmtD(x.tgl),x.dana,x.jenis,x.ket,x.masuk?num(x.masuk):'',x.keluar?num(x.keluar):''])):el('div','empty','Belum ada mutasi.'));c4.appendChild(w4);
 }
 
 function rek(label,a,b,detail,mode){
