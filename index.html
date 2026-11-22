@@ -332,7 +332,7 @@ function rLR(){
   addK(kb,'Realisasi bahan + iklan',jt(tReal),(tReal>tA?'lebih besar ':'lebih kecil ')+jt(Math.abs(tReal-tA))+' dari anggaran');
   const mark=x=>x.m+((x.m===LASTM()&&BERJALAN())?' *':'');
   const c1=$('#c-lr1');c1.appendChild(el('h3',null,'Net profit kotor per bulan'));c1.appendChild(el('div','d','Pendapatan bersih dikurangi anggaran bulanan bahan (sudah mencakup iklan), operasional, dan amal. Ini cara hitung SHU Kotor di Catatan SHU, tapi dengan pendapatan bersih riil dari Orders. Kolom terakhir = SHU Masuk yang dicatat di Buku_Kas pada bulan berikutnya (SHU bulan ini dibukukan bulan depan).'));
-  if(LA.every(x=>!x.al)){const na=el('div','note');na.innerHTML='<b>Anggaran bulanan belum diisi</b> untuk tahun '+(D.tahun||'')+', jadi kolom Net profit kotor belum bermakna (tanpa anggaran bahan dan iklan). Gunakan Riil profit di bawah.';c1.appendChild(na)}
+  if(LA.every(x=>!x.al)){const na=el('div','note');na.innerHTML='<b>Anggaran bulanan belum diisi</b> untuk tahun '+(D.tahun||'')+', jadi kolom Net profit kotor belum bermakna (tanpa anggaran bahan dan iklan). Isi di tab Anggaran di Master 2, atau gunakan Riil profit di bawah.';c1.appendChild(na)}
   const w1=el('div','tw');
   const sh=LA.map((_,i)=>shuMasukBulan(i));const tS=sum(sh.slice(0,L.length).map(v=>v||0));const TL=L.length<LA.length?'Total Jan–'+L[L.length-1].m:'Total';
   w1.appendChild(table(['Bulan','Pendapatan bersih','Anggaran bahan + iklan','Operasional','Amal','Net profit kotor','Margin','SHU Masuk dibukukan'],
