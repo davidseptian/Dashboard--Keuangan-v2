@@ -178,6 +178,7 @@ input[type=text],input[type=password]{background:var(--panel);color:var(--text);
   <div class="card" style="margin-top:14px" id="c-k0"></div>
   <div class="grid2"><div class="card" id="c-k1"></div><div class="card" id="c-k2"></div></div>
   <div class="grid2"><div class="card" id="c-k3"></div><div class="card" id="c-k4"></div></div>
+  <div class="card" style="margin-top:14px" id="c-k5"></div>
 </section>
 
 <section class="tab" id="t-mp">
@@ -416,7 +417,7 @@ function prepKas(){
 }
 function rKas(){
   ['k-kas','c-k0','c-k1','c-k2','c-k3','c-k4'].forEach(i=>$('#'+i).replaceChildren());
-  rKasExact();
+  rKasExact();rKasRinci();
   const k=D.kas.kantong[KSEL];if(!k)return;
   const bl=D.kas.bulan;let sd=0;const saldoAkhir=k.m.map(m=>{sd+=m[0]-m[1];return sd});
   let per,idxOf;
@@ -622,6 +623,69 @@ function bangunPreset(){const bx=$('#presets');bx.replaceChildren();const r=D&&D
 const hariList=(a,b)=>{const o=[];for(let d=parseD(a),e=parseD(b);d<=e;d=new Date(d.getFullYear(),d.getMonth(),d.getDate()+1))o.push(isoD(d));return o};
 const lblH=t=>{const d=parseD(t);return d.getDate()+' '+BLN[d.getMonth()]};
 const thin=(L,n)=>L.map((l,i)=>L.length>n?(i%Math.ceil(L.length/n)===0?l:''):l);
+/* ---------- Arus Kas detail: rincian transaksi Buku_Kas (aksi kas_rinci, hanya dibaca) ---------- */
+const KR={key:'',rows:[],total:0,terpotong:false,err:'',loading:false,f:{k:'',kat:'',arah:'',q:''},sort:{c:'tgl',asc:false},lim:50};
+function rentangKR(){const E=D&&D.exact;if(E)return [E.dari,E.sampai];if(YSEL!=='ALL')return [YSEL+'-01-01',YSEL+'-12-31'];return ['',''];}
+function jsonpKR(url,key,dari,sampai){return new Promise((res,rej)=>{const cb='hkr_'+Date.now();const s=document.createElement('script');const t=setTimeout(()=>{cl();rej(new Error('Waktu habis'))},60000);
+  function cl(){clearTimeout(t);delete window[cb];s.remove()}
+  window[cb]=d=>{cl();res(d)};s.onerror=()=>{cl();rej(new Error('Gagal memuat'))};
+  s.src=url+(url.includes('?')?'&':'?')+'action=kas_rinci&key='+encodeURIComponent(key)+(dari?'&dari='+encodeURIComponent(dari):'')+(sampai?'&sampai='+encodeURIComponent(sampai):'')+'&callback='+cb;document.head.appendChild(s)})}
+async function muatKR(dari,sampai,key){
+  const u=$('#apiUrl').value.trim(),k=$('#apiKey').value;if(!u||!k)return;
+  KR.loading=true;KR.err='';rKasRinci(true);
+  try{const d=await jsonpKR(u,k,dari,sampai);if(d.error)throw new Error(d.error);if(d.galat)throw new Error(d.galat);
+    if(rentangKR().join('|')!==key){KR.loading=false;return rKasRinci()}  /* rentang berubah selama memuat: muat ulang */
+    KR.rows=d.rows||[];KR.total=d.total||0;KR.terpotong=!!d.terpotong;KR.key=key;KR.lim=50}
+  catch(e){KR.err=e.message;KR.key=key;KR.rows=[];KR.total=0}
+  KR.loading=false;rKasRinci(true)}
+function krKantong(){return KR.f.k===''?KSEL:KR.f.k}
+function krFilter(){const f=KR.f,kt=krKantong(),q=f.q.trim().toLowerCase();
+  return KR.rows.filter(r=>(kt==='*'||r[2]===kt)&&(!f.kat||r[5]===f.kat)&&(f.arah!=='masuk'||r[3]>0)&&(f.arah!=='keluar'||r[4]>0)&&(!q||[r[0],r[2],r[5],r[6],r[7],r[8]].join(' ').toLowerCase().includes(q)))}
+const KRC={tgl:r=>r[1],kantong:r=>r[2],kat:r=>r[5],ket:r=>r[6].toLowerCase(),masuk:r=>r[3],keluar:r=>r[4],ref:r=>r[8]};
+function krUrut(a){const f=KRC[KR.sort.c],d=KR.sort.asc?1:-1;return a.slice().sort((x,y)=>{const p=f(x),q=f(y);const c=p<q?-1:p>q?1:0;return c?c*d:(x[1]<y[1]?-1:x[1]>y[1]?1:x[0]-y[0])*d})}
+function krCsv(a){const q=v=>{v=String(v===null||v===undefined?'':v);return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const c=['No,Tanggal,Kantong,Kategori,Keterangan,Masuk,Keluar,Lokasi/Rekening,Ref,Dicatat_Oleh',...a.map(r=>[r[0],r[1],r[2],r[5],r[6],r[3]||'',r[4]||'',r[7],r[8],r[9]].map(q).join(','))].join('\r\n');
+  const [d1,d2]=rentangKR();const l=document.createElement('a');l.href=URL.createObjectURL(new Blob(['﻿'+c],{type:'text/csv;charset=utf-8'}));l.download='arus-kas-rinci'+(d1?'-'+d1:'')+(d2?'-sd-'+d2:'')+'.csv';document.body.appendChild(l);l.click();l.remove()}
+function rKasRinci(dalam){
+  const c=$('#c-k5');if(!c||!D)return;
+  const [dari,sampai]=rentangKR(),key=dari+'|'+sampai;
+  if(!dalam&&!KR.loading&&KR.key!==key&&$('#t-kas').classList.contains('on')){muatKR(dari,sampai,key);return}
+  const fokus=document.activeElement&&document.activeElement.id==='krQ'?document.activeElement.selectionStart:-1;
+  c.replaceChildren();c.appendChild(el('h3',null,'Rincian transaksi'));
+  c.appendChild(el('div','d',(dari?fmtD(dari)+' – '+fmtD(sampai):'Semua tanggal')+'. Setiap baris Buku_Kas, urut bisa diubah dengan klik judul kolom. Mengikuti kalender periode di atas.'));
+  if(KR.loading){c.appendChild(el('div','empty','Memuat rincian transaksi…'));return}
+  if(KR.key!==key){c.appendChild(el('div','empty','Buka tab ini untuk memuat rincian transaksi.'));return}
+  if(KR.err){c.appendChild(el('div','empty','Gagal memuat rincian: '+KR.err));const b=el('button','btn','Coba lagi');b.onclick=()=>{KR.key='';rKasRinci()};c.appendChild(b);return}
+  const kn_=[...new Set(KR.rows.map(r=>r[2]))].sort(),kats=[...new Set(KR.rows.map(r=>r[5]))].sort();
+  if(KR.f.k!==''&&KR.f.k!=='*'&&!kn_.includes(KR.f.k))KR.f.k='';
+  if(KR.f.kat&&!kats.includes(KR.f.kat))KR.f.kat='';
+  const fl=el('div','filters');fl.style.margin='6px 0';
+  const sel=(lab,val,opts,fn)=>{fl.appendChild(el('label',null,lab));const s=el('select');opts.forEach(([v,t])=>{const o=el('option',null,t);o.value=v;s.appendChild(o)});s.value=val;s.onchange=e=>{fn(e.target.value);KR.lim=50;rKasRinci(true)};fl.appendChild(s)};
+  sel('Kantong',KR.f.k,[['','Ikut kantong di atas ('+(KSEL||'–')+')'],['*','Semua kantong'],...kn_.map(n=>[n,n])],v=>KR.f.k=v);
+  sel('Kategori',KR.f.kat,[['','Semua kategori'],...kats.map(n=>[n,n])],v=>KR.f.kat=v);
+  sel('Arah',KR.f.arah,[['','Masuk dan keluar'],['masuk','Hanya masuk'],['keluar','Hanya keluar']],v=>KR.f.arah=v);
+  const q=el('input');q.type='text';q.id='krQ';q.placeholder='Cari keterangan, ref, no…';q.value=KR.f.q;q.style.minWidth='200px';q.oninput=e=>{KR.f.q=e.target.value;KR.lim=50;rKasRinci(true)};fl.appendChild(q);
+  const rs=el('button','btn','Atur ulang');rs.onclick=()=>{KR.f={k:'',kat:'',arah:'',q:''};KR.lim=50;rKasRinci(true)};fl.appendChild(rs);
+  c.appendChild(fl);
+  const a=krFilter(),mi=sum(a.map(r=>r[3])),ke=sum(a.map(r=>r[4]));
+  const kp=el('div','kpis');kp.style.margin='10px 0';addK(kp,'Transaksi',num(a.length),'dari '+num(KR.rows.length)+' baris pada periode');addK(kp,'Masuk',rp(mi),'');addK(kp,'Keluar',rp(ke),'');addK(kp,'Bersih',rp(mi-ke),mi-ke>=0?'masuk lebih besar':'keluar lebih besar');c.appendChild(kp);
+  if(krKantong()==='*')c.appendChild(el('div','note','Semua kantong menjumlahkan buku induk (SHU Total) dan lokasi dana sekaligus, jadi totalnya tidak mencerminkan satu saldo. Pilih satu kantong untuk angka yang bisa dicocokkan dengan saldo.'));
+  if(KR.terpotong)c.appendChild(el('div','note','Periode ini punya '+num(KR.total)+' baris; yang ditampilkan hanya 1.500 yang terbaru. Persempit kalender periode untuk melihat sisanya.'));
+  const pulihFokus=()=>{if(fokus>=0){const e=$('#krQ');if(e){e.focus();try{e.setSelectionRange(fokus,fokus)}catch(_){}}}};
+  if(!a.length){c.appendChild(el('div','empty','Tidak ada transaksi yang cocok dengan filter.'));pulihFokus();return}
+  const U=krUrut(a),tampil=U.slice(0,KR.lim);
+  const cols=[['tgl','Tanggal'],['kantong','Kantong'],['kat','Kategori'],['ket','Keterangan'],['masuk','Masuk'],['keluar','Keluar'],['ref','Ref']];
+  const w=el('div','tw');w.style.maxHeight='520px';const t=el('table'),th=el('thead'),hr=el('tr');
+  cols.forEach(([k,l])=>{const h=el('th',null,l+(KR.sort.c===k?(KR.sort.asc?' ▲':' ▼'):''));h.style.cursor='pointer';h.style.textAlign=['masuk','keluar'].includes(k)?'right':'left';h.title='Urutkan';h.onclick=()=>{KR.sort=KR.sort.c===k?{c:k,asc:!KR.sort.asc}:{c:k,asc:k==='tgl'||k==='masuk'||k==='keluar'?false:true};rKasRinci(true)};hr.appendChild(h)});
+  th.appendChild(hr);t.appendChild(th);const tb=el('tbody');
+  tampil.forEach(r=>{const x=el('tr');
+    [fmtD(r[1]),r[2],r[5],r[6],r[3]?num(r[3]):'',r[4]?num(r[4]):'',r[8]].forEach((v,i)=>{const d=el('td',null,v);d.style.textAlign=i===4||i===5?'right':'left';if(i===3){d.style.whiteSpace='normal';d.style.minWidth='220px';d.style.maxWidth='380px'}if(i===4&&r[3])d.style.color='var(--good,#5fbf7a)';x.appendChild(d)});tb.appendChild(x)});
+  t.appendChild(tb);w.appendChild(t);c.appendChild(w);
+  const bar=el('div','filters');bar.style.margin='10px 0 0';bar.appendChild(el('label',null,'Menampilkan '+num(tampil.length)+' dari '+num(a.length)+' transaksi'));
+  if(tampil.length<a.length){const m=el('button','btn','Tampilkan 50 lagi');m.onclick=()=>{KR.lim+=50;rKasRinci(true)};bar.appendChild(m);const m2=el('button','btn','Tampilkan semua');m2.onclick=()=>{KR.lim=a.length;rKasRinci(true)};bar.appendChild(m2)}
+  const cv=el('button','btn gold','Unduh CSV ('+num(a.length)+' baris)');cv.onclick=()=>krCsv(U);bar.appendChild(cv);c.appendChild(bar);
+  pulihFokus();
+}
 function rKasExact(){
   const c=$('#c-k0');c.replaceChildren();const E=D.exact;if(!E)return;const k=E.kas[KSEL];
   const ttl='Mutasi periode · '+KSEL,ds=fmtD(E.dari)+' – '+fmtD(E.sampai)+' ('+E.n_hari+' hari), dihitung per tanggal tepat. Saldo awal = saldo sebelum tanggal pertama.';
@@ -653,7 +717,7 @@ function scopeBar(){
   b.textContent='Ringkasan, Laba Rugi, dan Rekonsiliasi memakai bulan penuh ('+(d===s2?d:d+' – '+s2)+') karena biaya dicatat per bulan. Arus Kas dan Dana Marketplace memakai tanggal tepat: '+fmtD(r.dari)+' – '+fmtD(r.sampai)+'.';
 }
 $('#selK').onchange=e=>{KSEL=e.target.value;rKas()};$('#selY').onchange=e=>{YSEL=e.target.value;rKas()};
-document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));document.querySelectorAll('section.tab').forEach(s=>s.classList.toggle('on',s.id==='t-'+b.dataset.t));hideTip()});
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x===b));document.querySelectorAll('section.tab').forEach(s=>s.classList.toggle('on',s.id==='t-'+b.dataset.t));hideTip();if(b.dataset.t==='kas')rKasRinci()});
 $('#cfgBtn').onclick=()=>$('#cfg').classList.toggle('on');
 try{const u=localStorage.getItem('hypotech_v2_api'),k=localStorage.getItem('hypotech_v2_key');if(u)$('#apiUrl').value=u;if(k)$('#apiKey').value=k}catch(e){}
 
@@ -663,7 +727,7 @@ function jsonp(url,key){return new Promise((res,rej)=>{const cb='hkeu_'+Date.now
   s.src=url+(url.includes('?')?'&':'?')+'action=keuangan&fresh=1&key='+encodeURIComponent(key)+(RG?'&dari='+encodeURIComponent(RG.dari)+'&sampai='+encodeURIComponent(RG.sampai):'')+'&callback='+cb;document.head.appendChild(s)})}
 async function muat(){const u=$('#apiUrl').value.trim(),k=$('#apiKey').value;if(!u||!k){$('#cfg').classList.add('on');return}
   $('#badgeTxt').textContent='Memuat…';const w=$('#warn');w.style.display='none';
-  try{const d=await jsonp(u,k);if(d.error)throw new Error(d.error);D=d;try{localStorage.setItem('hypotech_v2_api',u);localStorage.setItem('hypotech_v2_key',k)}catch(e){}
+  try{const d=await jsonp(u,k);if(d.error)throw new Error(d.error);D=d;KR.key='';try{localStorage.setItem('hypotech_v2_api',u);localStorage.setItem('hypotech_v2_key',k)}catch(e){}
     $('#badge').classList.add('live');$('#cfg').classList.remove('on');$('#badgeTxt').textContent='Live dari Master 2 · '+(d.diperbarui||'');setRgTxt();bangunPreset();scopeBar();
     const g=d.diagnosa||{},m=[];if(g.kas_dilewati>0)m.push(g.kas_dilewati+' baris Buku_Kas dilewati karena tanggal atau kantong kosong');(g.galat||[]).forEach(x=>m.push(x));
     if(m.length){w.textContent='Periksa data: '+m.join('; ')+'.';w.style.display='block'}
