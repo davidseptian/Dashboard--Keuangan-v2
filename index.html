@@ -151,6 +151,7 @@ input[type=text],input[type=password]{background:var(--panel);color:var(--text);
   <button data-t="lr">Laba Rugi</button>
   <button data-t="kas">Arus Kas</button>
   <button data-t="mp">Dana Marketplace</button>
+  <button data-t="hp">Hutang &amp; Piutang</button>
   <button data-t="rek">Rekonsiliasi</button>
 </nav>
 
@@ -185,6 +186,13 @@ input[type=text],input[type=password]{background:var(--panel);color:var(--text);
   <div class="card" style="margin-top:14px" id="c-m3"></div>
 </section>
 
+<section class="tab" id="t-hp">
+  <div class="kpis" id="k-hp"></div>
+  <div class="card" style="margin-top:14px" id="c-h1"></div>
+  <div class="card" style="margin-top:14px" id="c-h2"></div>
+  <div class="card" style="margin-top:14px" id="c-h3"></div>
+  <div class="card" style="margin-top:14px" id="c-h4"></div>
+</section>
 <section class="tab" id="t-rek">
   <div class="card" style="margin-top:14px" id="c-rk1"></div>
   <div class="card" style="margin-top:14px" id="c-rk2"></div>
@@ -325,10 +333,10 @@ const lastIdx=a=>{let i=a.length-1;while(i>=0&&!a[i])i--;return i};
 
 function render(){
   const empty=!D;
-  ['k-ring','k-lr','k-kas','k-mp'].forEach(i=>$('#'+i).replaceChildren());
-  ['c-k0','c-m0','c-r1','c-r2','c-lr1','c-lr2','c-lr3','c-lr4','c-k1','c-k2','c-k3','c-k4','c-m1','c-m2','c-m3','c-rk1','c-rk2','c-rk3'].forEach(i=>$('#'+i).replaceChildren());
+  ['k-ring','k-lr','k-kas','k-mp','k-hp'].forEach(i=>$('#'+i).replaceChildren());
+  ['c-k0','c-m0','c-r1','c-r2','c-lr1','c-lr2','c-lr3','c-lr4','c-k1','c-k2','c-k3','c-k4','c-m1','c-m2','c-m3','c-rk1','c-rk2','c-rk3','c-rk4','c-h1','c-h2','c-h3','c-h4'].forEach(i=>$('#'+i).replaceChildren());
   if(empty){$('#k-ring').appendChild(el('div','note','Belum ada data. Klik Sumber data, isi URL dan kunci, lalu Muat.'));$('#foot').textContent='';return}
-  rRing();rLR();rKas();rMP();rRek();
+  rRing();rLR();rKas();rMP();rHP();rRek();
   $('#foot').textContent='Sumber: Master 2 (Buku_Kas, Order_Pencairan, Penyesuaian_Marketplace, Orders, Biaya) dan HPP Sistem Otomatis. Dashboard ini hanya membaca; input tetap di Master 2.';
 }
 
@@ -452,6 +460,38 @@ function rMP(){
   const c=$('#c-m3');c.appendChild(el('h3',null,'Penyesuaian marketplace'));c.appendChild(el('div','d','Uang masuk atau keluar di luar order, dari tab Penyesuaian_Marketplace (nilai positif = uang masuk).'));
   const js=Object.entries(D.penyesuaian.jenis).sort((a,b)=>b[1]-a[1]);const w=el('div','tw');
   w.appendChild(js.length?table(['Jenis','Jumlah'],js.map(x=>[x[0],num(x[1])]),['Total',num(sum(js.map(x=>x[1])))]):el('div','empty','Belum ada data.'));c.appendChild(w);
+}
+
+
+/* ---------- Hutang & Piutang (posisi per hari ini, tidak mengikuti filter periode) ---------- */
+function rHP(){
+  const H=D.hp,kb=$('#k-hp');if(!H)return;
+  if(!H.ada){const c=$('#c-h1');c.appendChild(el('h3',null,'Hutang & Piutang'));c.appendChild(el('div','note','Belum ada data. Jalankan siapkanHutangPiutang() sekali di Apps Script (membuat tab Hutang_Piutang dan mengisi saldo awal piutang dari Buku_Kas), lalu catat hutang bahan lewat Pusat Input.'));return}
+  const R=H.ringkas,JP=['Piutang Orang','Piutang Bahan'],JH=['Hutang Bahan','Hutang Lain'];
+  const tP=sum(JP.map(j=>R[j].total)),tH=sum(JH.map(j=>R[j].total)),tl=sum(H.jenis.map(j=>R[j].terlambat)),jl=sum(H.jenis.map(j=>R[j].jml_terlambat));
+  addK(kb,'Total piutang',jt(tP),'orang '+jt(R['Piutang Orang'].total)+' · bahan '+jt(R['Piutang Bahan'].total));
+  addK(kb,'Total hutang',jt(tH),'bahan '+jt(R['Hutang Bahan'].total)+' · lain '+jt(R['Hutang Lain'].total));
+  addK(kb,'Posisi bersih',jt(tP-tH),tP-tH>=0?'piutang lebih besar dari hutang':'hutang lebih besar dari piutang');
+  addK(kb,'Lewat jatuh tempo',tl?num(tl)+' pihak':'Tidak ada',tl?jt(jl)+' belum dilunasi':'per '+fmtD(H.hari));
+  const c1=$('#c-h1');c1.appendChild(el('h3',null,'Saldo terbuka per pihak'));c1.appendChild(el('div','d','Posisi per '+fmtD(H.hari)+', tidak mengikuti filter periode. Saldo = total Tambah dikurangi total Bayar di tab Hutang_Piutang. Umur dihitung dari catatan Tambah terakhir.'));
+  const w1=el('div','tw');
+  const rows=H.buka.map(x=>[x.jenis,x.pihak,num(x.saldo),x.tempo?fmtD(x.tempo):'–',x.umur==null?'–':num(x.umur)+' hari',x.saldo<0?chip('Lebih bayar','w'):x.terlambat?chip('Lewat tempo','x'):chip('Terbuka','n')]);
+  const tot=['Total (piutang − hutang)','',num(tP-tH),'','',''];
+  w1.appendChild(rows.length?table(['Jenis','Pihak','Saldo','Jatuh tempo','Umur','Status'],rows,tot):el('div','empty','Semua sudah lunas.'));c1.appendChild(w1);
+  if(H.lunas.length){const dt=el('details');dt.style.marginTop='10px';dt.appendChild(el('summary','d','Sudah lunas ('+H.lunas.length+' terbaru)'));const w=el('div','tw');w.appendChild(table(['Jenis','Pihak','Total tercatat','Dilunasi terakhir'],H.lunas.map(x=>[x.jenis,x.pihak,num(x.tambah),fmtD(x.terakhir)])));dt.appendChild(w);c1.appendChild(dt)}
+  const bl=H.bulanan.map(b=>({l:lblYM(b.ym),pt:sum(JP.map(j=>b.tambah[j]||0)),pb:sum(JP.map(j=>b.bayar[j]||0)),ht:sum(JH.map(j=>b.tambah[j]||0)),hb:sum(JH.map(j=>b.bayar[j]||0))}));
+  if(bl.length){
+    const sh=[{n:'Hutang baru',c:'var(--s1)',v:bl.map(x=>x.ht)},{n:'Hutang dibayar',c:'var(--s3)',v:bl.map(x=>x.hb)}];
+    card('#c-h2','Hutang per bulan','Hutang baru (Tambah) dan pembayaran (Bayar) tercatat di tab Hutang_Piutang, hutang bahan dan hutang lain.',sh.map(x=>({n:x.n,c:x.c})),
+      stackedBars(bl.map(x=>x.l),sh,{fmt:rp,axisFmt:axM,label:'Hutang baru dan dibayar per bulan'}),()=>table(['Bulan','Hutang baru','Hutang dibayar','Selisih'],bl.map(x=>[x.l,num(x.ht),num(x.hb),num(x.ht-x.hb)])));
+    const sp=[{n:'Piutang baru',c:'var(--s2)',v:bl.map(x=>x.pt)},{n:'Piutang diterima',c:'var(--s3)',v:bl.map(x=>x.pb)}];
+    card('#c-h3','Piutang per bulan','Piutang baru (Tambah) dan penerimaan atau cicilan (Bayar), piutang orang dan piutang bahan.',sp.map(x=>({n:x.n,c:x.c})),
+      stackedBars(bl.map(x=>x.l),sp,{fmt:rp,axisFmt:axM,label:'Piutang baru dan diterima per bulan'}),()=>table(['Bulan','Piutang baru','Piutang diterima','Selisih'],bl.map(x=>[x.l,num(x.pt),num(x.pb),num(x.pt-x.pb)])));
+  }
+  const c4=$('#c-h4');c4.appendChild(el('h3',null,'Cocokkan dengan Buku_Kas'));c4.appendChild(el('div','d','Saldo di tab Hutang_Piutang dibandingkan dengan kantong Piutang dan Piutang Bahan di Buku_Kas. Cocok bila selisih kurang dari Rp1.'));
+  const w4=el('div','tw');
+  w4.appendChild(H.rekon.length?table(['Jenis','Kantong Buku_Kas','Hutang_Piutang','Buku_Kas','Selisih','Status'],H.rekon.map(x=>{const ok=Math.abs(x.selisih)<1;return [x.jenis,x.kantong,num(x.hp),num(x.kas),num(x.selisih),chip(ok?'Cocok':'Perlu dicek',ok?'ok':'x')]})):el('div','empty','Belum ada pembanding.'));c4.appendChild(w4);
+  const n=el('div','note');n.innerHTML='<b>Cara baca:</b> Hutang Bahan dan Hutang Lain belum punya kantong di Buku_Kas (hanya pembayaran yang tercatat sebagai Keluar di kategori Hutang/Cicilan), jadi tidak dibandingkan. Bila selisih muncul di piutang, catat mutasi yang sama di Buku_Kas atau koreksi di Hutang_Piutang.';c4.appendChild(n);
 }
 
 function rek(label,a,b,detail,mode){
