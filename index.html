@@ -343,8 +343,11 @@ const axM=v=>(v/1e6).toLocaleString('id-ID')+' jt';
 const chip=(t,k)=>el('span','st '+k,t);
 const KEL_ORDER=['Buku induk','Lokasi dana','Pembagian SHU','Lainnya'];
 const kn=()=>D?Object.keys(D.kas.kantong).sort((a,b)=>KEL_ORDER.indexOf(D.kas.kantong[a].kel)-KEL_ORDER.indexOf(D.kas.kantong[b].kel)):[];
-const kantongSaldo=n=>D.kas.kantong[n]?D.kas.kantong[n].saldo:0;
-const lokasi=()=>kn().filter(n=>D.kas.kantong[n].kel==='Lokasi dana');
+const HPK={'Piutang':'Piutang Orang','Piutang Bahan':'Piutang Bahan'};
+const hpAda=()=>!!(D&&D.hp&&D.hp.ada);
+/* Hutang orang dan hutang bahan = saldo tab Hutang_Piutang (diinput di Pusat Input). Kantong Piutang/Piutang Bahan di Buku_Kas hanya saldo awal 19 Nov. Tanpa tab Hutang_Piutang, pakai Buku_Kas. */
+const kantongSaldo=n=>(HPK[n]&&hpAda())?D.hp.ringkas[HPK[n]].total:(D.kas.kantong[n]?D.kas.kantong[n].saldo:0);
+const lokasi=()=>{const a=kn().filter(n=>D.kas.kantong[n].kel==='Lokasi dana');if(hpAda())Object.keys(HPK).forEach(n=>{if(!a.includes(n))a.push(n)});return a};
 const nm10=()=>D.bulan;
 const FULL={Jan:'Januari',Feb:'Februari',Mar:'Maret',Apr:'April',Mei:'Mei',Jun:'Juni',Jul:'Juli',Agu:'Agustus',Sep:'September',Okt:'Oktober',Nov:'November',Des:'Desember'};
 const LASTM=()=>D&&D.bulan.length?D.bulan[D.bulan.length-1]:'Okt';
@@ -431,8 +434,7 @@ const KT_RIIL=['Dana Siaga','Investasi','Piutang','Piutang Bahan'];
 function rRiil(){
   const K=D.kas.kantong,H=(D.hp&&D.hp.ada)?D.hp:null,bl=D.kas.bulan;
   const ds=kantongSaldo('Dana Siaga'),iv=kantongSaldo('Investasi'),cash=ds+iv;
-  const dariHP=j=>H?H.ringkas[j].total:0;
-  const ho=K['Piutang']?K['Piutang'].saldo:dariHP('Piutang Orang'),hb=K['Piutang Bahan']?K['Piutang Bahan'].saldo:dariHP('Piutang Bahan');
+  const ho=kantongSaldo('Piutang'),hb=kantongSaldo('Piutang Bahan');
   const hut=ho+hb,tot=cash+hut,adaShu=!!K['SHU Total'],shu=kantongSaldo('SHU Total');
   const lainN=lokasi().filter(n=>!KT_RIIL.includes(n)),lain=sum(lainN.map(kantongSaldo));
   const belum=shu-tot-lain;
@@ -444,15 +446,16 @@ function rRiil(){
   addK(kb,'Investasi',rp(iv),K['Investasi']?pct(iv,cash)+' dari riil cash':'belum ada di Buku_Kas');
   addK(kb,'Hutang orang',rp(ho),po.length?num(po.length)+' pihak belum mengembalikan':'dipinjam orang, belum kembali');
   addK(kb,'Hutang bahan',rp(hb),pb.length?num(pb.length)+' pihak belum mengembalikan':'dana bahan, belum kembali');
-  addK(kb,'Total semua',jt(tot),'riil cash + hutang, seperti TOTAL ALL di Catatan SHU');
+  addK(kb,'Total semua',jt(tot),'riil cash + hutang orang + hutang bahan');
   /* kiri: tabel komposisi dan cocokkan dengan SHU Total */
   const c1=$('#c-rl1');c1.appendChild(el('h3',null,'Posisi uang riil'));
-  c1.appendChild(el('div','d','Posisi per '+lblYM(bl[bl.length-1])+', dihitung dari Buku_Kas, tidak mengikuti filter periode. Hutang = uang SHU yang dipinjam orang atau dipakai untuk bahan dan belum kembali (di tab Hutang & Piutang disebut Piutang).'));
+  c1.appendChild(el('div','d','Posisi per '+lblYM(bl[bl.length-1])+', tidak mengikuti filter periode. Dana Siaga dan Investasi dari Buku_Kas, hutang dari tab Hutang_Piutang (input di Pusat Input). Hutang = uang SHU yang dipinjam orang atau dipakai untuk bahan dan belum kembali (di tab Hutang & Piutang disebut Piutang).'));
   const pc=v=>(tot+lain)?pct(v,tot+lain):'–';
   const rows=[['Dana Siaga',num(ds),pc(ds)],['Investasi',num(iv),pc(iv)],[el('b',null,'Riil cash'),el('b',null,num(cash)),el('b',null,pc(cash))],
     ['Hutang orang',num(ho),pc(ho)],['Hutang bahan',num(hb),pc(hb)],[el('b',null,'Total hutang'),el('b',null,num(hut)),el('b',null,pc(hut))]];
   lainN.forEach(n=>rows.push([n,num(kantongSaldo(n)),pc(kantongSaldo(n))]));
   const w1=el('div','tw');w1.appendChild(table(['Komponen','Saldo','% dari total lokasi'],rows,['Total lokasi dana',num(tot+lain),pc(tot+lain)]));c1.appendChild(w1);
+  const ta=el('div','note');ta.innerHTML='<b>Padanan Catatan SHU:</b> TOTAL ALL di sana = riil cash + hutang orang = <b>'+rp(cash+ho)+'</b> (hutang bahan tidak ikut dihitung di sana).';c1.appendChild(ta);
   if(adaShu){
     const ok=Math.abs(belum)<1;
     const n=el('div','note');n.innerHTML='<b>Cocokkan dengan SHU Total:</b> buku induk '+rp(shu)+' dikurangi total lokasi dana '+rp(tot+lain)+' = <b>'+rp(belum)+'</b>. '+(ok?'Cocok, semua uang SHU punya lokasi.':(belum>0?'Sebesar itu belum punya lokasi di Buku_Kas (belum dicatat di kantong mana). Lihat tab Rekonsiliasi.':'Lokasi tercatat lebih besar dari buku induk. Lihat tab Rekonsiliasi.'));c1.appendChild(n);
@@ -460,7 +463,9 @@ function rRiil(){
   /* kanan: total semua per akhir bulan, bertumpuk */
   const cum=n=>{let s=0;return K[n]?K[n].m.map(m=>{s+=m[0]-m[1];return s}):bl.map(()=>0)};
   const n12=Math.min(12,bl.length),sl=a=>a.slice(-n12).map(v=>Math.max(v,0));
-  const sr=[{n:'Dana Siaga',c:'var(--b2)',v:sl(cum('Dana Siaga'))},{n:'Investasi',c:'var(--gold)',v:sl(cum('Investasi'))},{n:'Hutang orang',c:'var(--s1)',v:sl(cum('Piutang'))},{n:'Hutang bahan',c:'var(--s2)',v:sl(cum('Piutang Bahan'))}].filter(x=>x.v.some(v=>v>0));
+  const flow=jn=>{const f=bl.map(()=>0);(H?H.bulanan:[]).forEach(b=>{let i=bl.indexOf(b.ym);if(i<0)i=b.ym>bl[bl.length-1]?bl.length-1:0;f[i]+=(b.tambah[jn]||0)-(b.bayar[jn]||0)});let c=0;return f.map(v=>c+=v)};
+  const hser=(kk,jn)=>{const a=cum(kk),f=flow(jn);return a.map((v,i)=>v+f[i])};
+  const sr=[{n:'Dana Siaga',c:'var(--b2)',v:sl(cum('Dana Siaga'))},{n:'Investasi',c:'var(--gold)',v:sl(cum('Investasi'))},{n:'Hutang orang',c:'var(--s1)',v:sl(hser('Piutang','Piutang Orang'))},{n:'Hutang bahan',c:'var(--s2)',v:sl(hser('Piutang Bahan','Piutang Bahan'))}].filter(x=>x.v.some(v=>v>0));
   const cats=bl.slice(-n12).map(lblS);
   if(sr.length){card('#c-rl2','Total semua per akhir bulan','12 bulan terakhir, saldo akhir bulan dari Buku_Kas. Tinggi batang = riil cash + hutang.',sr.map(x=>({n:x.n,c:x.c})),
     stackedBars(cats,sr,{fmt:rp,axisFmt:axM,label:'Riil cash dan hutang per akhir bulan'}),
@@ -474,8 +479,8 @@ function rRiil(){
   [['Hutang orang',po,ho,'Piutang'],['Hutang bahan',pb,hb,'Piutang Bahan']].forEach(([jd,ls,tt,kk])=>{
     const bx=el('div');bx.appendChild(el('h4',null,jd+' · '+rp(tt)));
     const w=el('div','tw');w.appendChild(ls.length?table(['Pihak','Saldo','Umur','Status'],ls.map(x=>[x.pihak,num(x.saldo),x.umur==null?'–':num(x.umur)+' hari',x.saldo<0?chip('Lebih bayar','w'):x.terlambat?chip('Lewat tempo','x'):chip('Terbuka','n')]),['Total',num(sum(ls.map(x=>x.saldo))),'','']):el('div','empty','Tidak ada saldo terbuka.'));bx.appendChild(w);
-    const bk=K[kk]?K[kk].saldo:null,sp=sum(ls.map(x=>x.saldo));
-    if(bk!=null&&Math.abs(sp-bk)>=1){const n=el('div','note');n.innerHTML='<b>Beda dengan Buku_Kas.</b> Daftar pihak '+rp(sp)+', kantong '+kk+' di Buku_Kas '+rp(bk)+' (selisih '+rp(sp-bk)+'). Angka di kartu atas memakai Buku_Kas; cek tab Hutang & Piutang.';bx.appendChild(n)}
+    const bk=K[kk]?K[kk].saldo:null;
+    if(bk!=null){const n=el('div','note');n.innerHTML='<b>Sumber angka:</b> Hutang_Piutang. Kantong '+kk+' di Buku_Kas ('+rp(bk)+') hanya saldo awal 19 Nov dan tidak dipakai lagi, jadi hutang baru cukup diinput di Pusat Input.';bx.appendChild(n)}
     g2.appendChild(bx)});
   c3.appendChild(g2);
 }
@@ -499,7 +504,7 @@ function rKas(){
   const mk=per.map(p=>({l:p.l,mi:sum(p.ix.map(i=>k.m[i][0])),ke:sum(p.ix.map(i=>k.m[i][1])),sa:saldoAkhir[p.ix[p.ix.length-1]]}));
   const tm=sum(mk.map(x=>x.mi)),tk=sum(mk.map(x=>x.ke));
   const kb=$('#k-kas');
-  addK(kb,'Saldo akhir',rp(k.saldo),KSEL+' · '+k.kel+' · per '+lblYM(bl[bl.length-1]));
+  addK(kb,'Saldo akhir',rp(k.saldo),KSEL+' · '+k.kel+' · per '+lblYM(bl[bl.length-1])+(HPK[KSEL]&&hpAda()?' · saldo awal, saldo terkini di Hutang & Piutang':''));
   addK(kb,'Uang masuk',jt(tm),YSEL==='ALL'?'semua tahun':'tahun '+YSEL);
   addK(kb,'Uang keluar',jt(tk),YSEL==='ALL'?'semua tahun':'tahun '+YSEL);
   addK(kb,'Mutasi bersih',jt(tm-tk),tm-tk>=0?'masuk lebih besar':'keluar lebih besar');
@@ -572,10 +577,10 @@ function rHP(){
     card('#c-h3','Piutang per bulan','Piutang baru (Tambah) dan penerimaan atau cicilan (Bayar), piutang orang dan piutang bahan.',sp.map(x=>({n:x.n,c:x.c})),
       stackedBars(bl.map(x=>x.l),sp,{fmt:rp,axisFmt:axM,label:'Piutang baru dan diterima per bulan'}),()=>table(['Bulan','Piutang baru','Piutang diterima','Selisih'],bl.map(x=>[x.l,num(x.pt),num(x.pb),num(x.pt-x.pb)])));
   }
-  const c4=$('#c-h4');c4.appendChild(el('h3',null,'Cocokkan dengan Buku_Kas'));c4.appendChild(el('div','d','Saldo di tab Hutang_Piutang dibandingkan dengan kantong Piutang dan Piutang Bahan di Buku_Kas. Cocok bila selisih kurang dari Rp1.'));
+  const c4=$('#c-h4');c4.appendChild(el('h3',null,'Saldo awal dan perubahan'));c4.appendChild(el('div','d','Saldo awal piutang diambil dari kantong Piutang dan Piutang Bahan di Buku_Kas (19 Nov). Sejak itu semua tambahan dan pembayaran dicatat di Hutang_Piutang lewat Pusat Input, jadi perubahan di bawah adalah hutang atau piutang baru dikurangi pembayaran.'));
   const w4=el('div','tw');
-  w4.appendChild(H.rekon.length?table(['Jenis','Kantong Buku_Kas','Hutang_Piutang','Buku_Kas','Selisih','Status'],H.rekon.map(x=>{const ok=Math.abs(x.selisih)<1;return [x.jenis,x.kantong,num(x.hp),num(x.kas),num(x.selisih),chip(ok?'Cocok':'Perlu dicek',ok?'ok':'x')]})):el('div','empty','Belum ada pembanding.'));c4.appendChild(w4);
-  const n=el('div','note');n.innerHTML='<b>Cara baca:</b> Hutang Bahan dan Hutang Lain belum punya kantong di Buku_Kas (hanya pembayaran yang tercatat sebagai Keluar di kategori Hutang/Cicilan), jadi tidak dibandingkan. Bila selisih muncul di piutang, catat mutasi yang sama di Buku_Kas atau koreksi di Hutang_Piutang.';c4.appendChild(n);
+  w4.appendChild(H.rekon.length?table(['Jenis','Saldo awal (Buku_Kas)','Perubahan sejak saldo awal','Saldo sekarang (Hutang_Piutang)'],H.rekon.map(x=>[x.jenis,num(x.kas),num(x.selisih),num(x.hp)])):el('div','empty','Belum ada pembanding.'));c4.appendChild(w4);
+  const n=el('div','note');n.innerHTML='<b>Cara baca:</b> Jangan menambah baris ke kantong Piutang atau Piutang Bahan di Buku_Kas lagi. Dashboard memakai saldo Hutang_Piutang untuk hutang orang dan hutang bahan, dan uang yang keluar dari Dana Siaga cukup dicatat di Catatan SHU lalu ditarik. Hutang Bahan dan Hutang Lain (Hypospot yang berhutang) tidak punya kantong di Buku_Kas.';c4.appendChild(n);
 }
 
 /* ---------- Pembagian SHU: empat dana (posisi per hari ini, tidak mengikuti filter periode) ---------- */
@@ -617,7 +622,7 @@ function rRek(){
   const L=lr(),sh=kantongSaldo('SHU Total'),lk=sum(lokasi().map(kantongSaldo));
   const tCair=sum(Object.values(D.cair).map(a=>sum(a))),tB=sum(L.map(x=>x.bers)),bp=sum(D.pnl.bahan_pokok),cg=sum(L.map(x=>x.cogs));
   const rows=[
-    rek('Saldo SHU Total (buku induk) vs jumlah lokasi dana',sh,lk,'Dua cara membagi uang yang sama seharusnya sama besar. Selisih berarti ada mutasi yang tercatat di satu sisi saja, atau Pembagian SHU belum diimpor.'),
+    rek('Saldo SHU Total (buku induk) vs jumlah lokasi dana',sh,lk,'Dua cara membagi uang yang sama seharusnya sama besar (hutang orang dan hutang bahan diambil dari tab Hutang_Piutang). Selisih berarti ada mutasi yang tercatat di satu sisi saja, atau Pembagian SHU belum diimpor.'),
     rek('Dana cair '+PER()+' vs pendapatan bersih '+PER(),tCair,tB,'Wajar berbeda: dana cair mencakup order bulan sebelum periode (cair di awal periode) dan belum mencakup order terakhir yang belum cair.','info'),
     rek('Pembelian bahan pokok vs COGS (HPP terjual)',bp,cg,'Bahan dibeli lebih besar dari COGS wajar bila stok bertambah. Selisih kecil menandakan HPP per SKU masuk akal.','info')
   ];
