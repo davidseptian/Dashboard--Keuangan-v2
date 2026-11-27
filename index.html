@@ -165,6 +165,7 @@ function hapusK(){try{localStorage.removeItem(KEYN);sessionStorage.removeItem(KE
   <button data-t="ring" class="on">Ringkasan</button>
   <button data-t="lr">Laba Rugi</button>
   <button data-t="kas">Arus Kas</button>
+  <button data-t="cb">Cash Budget</button>
   <button data-t="mp">Dana Marketplace</button>
   <button data-t="hp">Hutang &amp; Piutang</button>
   <button data-t="pb">Pembagian SHU</button>
@@ -198,6 +199,13 @@ function hapusK(){try{localStorage.removeItem(KEYN);sessionStorage.removeItem(KE
   <div class="grid2"><div class="card" id="c-k1"></div><div class="card" id="c-k2"></div></div>
   <div class="grid2"><div class="card" id="c-k3"></div><div class="card" id="c-k4"></div></div>
   <div class="card" style="margin-top:14px" id="c-k5"></div>
+</section>
+
+<section class="tab" id="t-cb">
+  <div class="kpis" id="k-cb"></div>
+  <div class="card" style="margin-top:14px" id="c-cb1"></div>
+  <div class="card" style="margin-top:14px" id="c-cb2"></div>
+  <div class="card" style="margin-top:14px" id="c-cb3"></div>
 </section>
 
 <section class="tab" id="t-mp">
@@ -365,11 +373,75 @@ const lastIdx=a=>{let i=a.length-1;while(i>=0&&!a[i])i--;return i};
 function render(){
   const empty=!D;
   ['c-h2','c-h3','c-p2'].forEach(i=>$('#'+i).style.display='');
-  ['k-ring','k-lr','k-kas','k-riil','k-mp','k-hp','k-pb'].forEach(i=>$('#'+i).replaceChildren());
-  ['c-rl1','c-rl2','c-rl3','c-k0','c-m0','c-r1','c-r2','c-lr1','c-lr2','c-lr3','c-lr4','c-k1','c-k2','c-k3','c-k4','c-m1','c-m2','c-m3','c-rk1','c-rk2','c-rk3','c-rk4','c-h1','c-h2','c-h3','c-h4','c-p1','c-p2','c-p3','c-p4'].forEach(i=>$('#'+i).replaceChildren());
+  ['k-ring','k-lr','k-kas','k-riil','k-cb','k-mp','k-hp','k-pb'].forEach(i=>$('#'+i).replaceChildren());
+  ['c-cb1','c-cb2','c-cb3','c-rl1','c-rl2','c-rl3','c-k0','c-m0','c-r1','c-r2','c-lr1','c-lr2','c-lr3','c-lr4','c-k1','c-k2','c-k3','c-k4','c-m1','c-m2','c-m3','c-rk1','c-rk2','c-rk3','c-rk4','c-h1','c-h2','c-h3','c-h4','c-p1','c-p2','c-p3','c-p4'].forEach(i=>$('#'+i).replaceChildren());
   if(empty){$('#k-ring').appendChild(el('div','note','Belum ada data. Klik Sumber data, isi URL dan kunci, lalu Muat.'));$('#foot').textContent='';return}
-  rRing();rLR();rRiil();rKas();rMP();rHP();rPB();rRek();
+  rRing();rLR();rRiil();rCB();rKas();rMP();rHP();rPB();rRek();
   $('#foot').textContent='Sumber: Master 2 (Buku_Kas, Order_Pencairan, Penyesuaian_Marketplace, Orders, Biaya) dan HPP Sistem Otomatis. Dashboard ini hanya membaca; input tetap di Master 2.';
+}
+
+/* ===== Cash Budget: cash siap pakai sekarang + proyeksi kas bulan depan ===== */
+const CB_DEF={inv:false,bca:true,mp:true,pot:null,n:3,plus:[],minus:[]};
+let CB=(()=>{try{return Object.assign({},CB_DEF,JSON.parse(localStorage.getItem('hypotech_cb_v1')||'{}'))}catch(e){return Object.assign({},CB_DEF)}})();
+const cbSimpan=()=>{try{localStorage.setItem('hypotech_cb_v1',JSON.stringify(CB))}catch(e){}};
+const cbAngka=v=>{const x=parseInt(String(v||'').replace(/[^\d-]/g,''),10);return isNaN(x)?0:x};
+function cbDasar(){ /* rata-rata 3 bulan penuh terakhir: dana cair dan pengeluaran tunai */
+  const P=D.pnl,n=D.bulan.length,akhir=BERJALAN()?n-1:n,idx=[];for(let i=Math.max(0,akhir-3);i<akhir;i++)idx.push(i);
+  const chs=Object.keys(D.cair||{}),rata=f=>idx.length?sum(idx.map(f))/idx.length:0;
+  const cair=rata(i=>sum(chs.map(c=>(D.cair[c]||[])[i]||0))),bahan=rata(i=>(P.bahan_pokok[i]||0)+(P.pendukung[i]||0)+(P.iklan[i]||0)),ops=rata(i=>(P.ops[i]||0)+(P.amal[i]||0));
+  const om=P.omzet?sum(idx.map(i=>P.omzet[i]||0)):0,br=sum(idx.map(i=>P.bers[i]||0));
+  const shuM=(D.kas.kantong['SHU Total']&&D.kas.kantong['SHU Total'].katM['SHU Masuk'])||null;let shu=null;
+  if(shuM&&D.kas.bulan&&D.ym){const ym=idx.map(i=>D.ym[i]),v=ym.map(y=>{const k=D.kas.bulan.indexOf(y);return k<0?0:(shuM[k]||0)});shu=v.length?sum(v)/v.length:null}
+  return{idx,label:idx.map(i=>D.bulan[i]),cair,bahan,ops,rasio:om>0?Math.min(1,br/om):null,shu}}
+function rCB(){
+  ['k-cb','c-cb1','c-cb2'].forEach(i=>$('#'+i).replaceChildren());
+  const K=D.kas.kantong,hpA=hpAda(),H=hpA?D.hp.ringkas:null;
+  const ds=kantongSaldo('Dana Siaga'),bca=K['Dana BCA']?kantongSaldo('Dana BCA'):0,iv=kantongSaldo('Investasi');
+  const dsr=cbDasar(),rasio=(CB.pot!==null&&CB.pot!==undefined)?CB.pot/100:(dsr.rasio!==null?dsr.rasio:0.75);
+  const ready=ds+(CB.bca?bca:0)+(CB.inv?iv:0),tunggu=sum(D.belum_cair_omzet)*rasio;
+  const kew=H?(H['Hutang Bahan'].total+H['Hutang Lain'].total):0,tag=H?(H['Piutang Orang'].total+H['Piutang Bahan'].total):0;
+  const keluarBln=dsr.bahan+dsr.ops,runway=keluarBln>0?ready/keluarBln:null;
+  const kb=$('#k-cb');
+  addK(kb,'Cash siap pakai',rp(ready),'Dana Siaga'+(CB.bca&&bca?' + Dana BCA':'')+(CB.inv?' + Investasi':'')+', uang yang benar-benar ada');
+  addK(kb,'Menunggu cair dari marketplace',CB.mp?rp(tunggu):'–',CB.mp?'perkiraan bersih ('+Math.round(rasio*100)+'% dari '+jt(sum(D.belum_cair_omzet))+' omzet kotor belum cair)':'tidak dihitung (matikan di Pengaturan)');
+  addK(kb,'Cash potensial',rp(ready+(CB.mp?tunggu:0)),'siap pakai + dana yang akan cair');
+  addK(kb,'Kewajiban (hutang Hypospot)',H?rp(kew):'–',H?'bahan '+jt(H['Hutang Bahan'].total)+' · lain '+jt(H['Hutang Lain'].total):'tab Hutang_Piutang belum ada');
+  addK(kb,'Cash bersih setelah lunasi hutang',rp(ready+(CB.mp?tunggu:0)-kew),'cash potensial dikurangi kewajiban');
+  addK(kb,'Napas kas (runway)',runway===null?'–':runway.toLocaleString('id-ID',{maximumFractionDigits:1})+' bulan',runway===null?'belum ada data pengeluaran':'cash siap pakai ÷ pengeluaran tunai rata-rata '+jt(keluarBln)+' per bulan');
+  /* komposisi */
+  const c1=$('#c-cb1');c1.appendChild(el('h3',null,'Dari mana cash ini'));c1.appendChild(el('div','d','Centang komponen yang Anda anggap cash siap pakai. Piutang tidak dihitung karena belum tentu kembali tepat waktu. Pilihan tersimpan di browser ini.'));
+  const sw=(k,t,v)=>{const l=el('label');l.style.cssText='display:flex;gap:8px;align-items:center;cursor:pointer';const i=document.createElement('input');i.type='checkbox';i.checked=!!CB[k];i.onchange=()=>{CB[k]=i.checked;cbSimpan();rCB()};l.appendChild(i);l.appendChild(el('span',null,t));return l};
+  const cl=$('#c-cb1');
+  const rows=[['Dana Siaga',rp(ds),'selalu dihitung'],['Dana BCA',rp(bca),sw('bca','Hitung',bca)],['Investasi',rp(iv),sw('inv','Hitung sebagai cash siap pakai',iv)],['Dana marketplace menunggu cair',rp(tunggu),sw('mp','Hitung di cash potensial',tunggu)],['Piutang orang + bahan (bisa ditagih)',rp(tag),'tidak dihitung']];
+  const tw=el('div','tw');tw.appendChild(table(['Komponen','Saldo','Dihitung?'],rows));cl.appendChild(tw);
+  const nt=el('div','note');nt.innerHTML='<b>Investasi</b> default tidak dihitung karena belum tentu bisa dicairkan cepat. Centang bila Anda menganggapnya cash. Saldo diambil dari Buku_Kas (Dana Siaga, Dana BCA, Investasi) dan tab Hutang_Piutang. Pastikan Tarik Catatan SHU sudah dijalankan agar Dana Siaga terkini.';cl.appendChild(nt);
+  /* proyeksi */
+  const N=CB.n===6?6:3,c2=$('#c-cb2');c2.appendChild(el('h3',null,'Proyeksi kas '+N+' bulan ke depan'));
+  c2.appendChild(el('div','d','Dimulai dari cash siap pakai sekarang. Penerimaan = rata-rata dana cair marketplace, pengeluaran = rata-rata bahan, iklan, operasional, dan amal, dari '+(dsr.idx.length?dsr.label.join(', '):'(belum ada bulan penuh)')+'. Dana menunggu cair sudah tercakup di penerimaan rata-rata, jadi tidak ditambahkan lagi. Isi kolom tambahan untuk rencana khusus (bayar hutang, beli aset, piutang kembali).'));
+  if(!dsr.idx.length){c2.appendChild(el('div','note','Belum ada bulan penuh untuk dijadikan dasar. Proyeksi muncul setelah ada minimal satu bulan penuh.'));return}
+  const T=new Date(),mn=[];for(let j=1;j<=N;j++){const d=new Date(T.getFullYear(),T.getMonth()+j,1);mn.push(BLN[d.getMonth()]+' '+d.getFullYear())}
+  while(CB.plus.length<N)CB.plus.push(0);while(CB.minus.length<N)CB.minus.push(0);
+  const inp=(arr,j)=>{const i=document.createElement('input');i.type='text';i.inputMode='numeric';i.value=arr[j]?num(arr[j]):'';i.placeholder='0';i.style.cssText='width:120px;text-align:right';i.onchange=()=>{arr[j]=cbAngka(i.value);cbSimpan();rCB()};return i};
+  let saldo=ready;const awal=[],akhir=[],neto=[];
+  for(let j=0;j<N;j++){awal.push(saldo);const m=dsr.cair+CB.plus[j]-dsr.bahan-dsr.ops-CB.minus[j];neto.push(m);saldo+=m;akhir.push(saldo)}
+  const R=[['Saldo awal',...awal.map(rp)],['+ Dana cair marketplace (rata-rata)',...mn.map(()=>rp(dsr.cair))],['+ Penerimaan tambahan',...mn.map((_,j)=>inp(CB.plus,j))],
+    ['− Bahan, bahan pendukung, iklan (rata-rata)',...mn.map(()=>rp(-dsr.bahan))],['− Operasional dan amal (rata-rata)',...mn.map(()=>rp(-dsr.ops))],['− Pengeluaran tambahan',...mn.map((_,j)=>inp(CB.minus,j))],
+    ['Arus kas bersih',...neto.map(rp)]];
+  const tot=['Saldo akhir',...akhir.map(rp)];
+  const tw2=el('div','tw');tw2.appendChild(table(['',...mn],R,tot));c2.appendChild(tw2);
+  const neg=akhir.findIndex(v=>v<0);
+  const ink=el('div','note');ink.innerHTML=neg>=0?'<b>Awas:</b> cash diperkirakan habis di <b>'+mn[neg]+'</b> bila pola pengeluaran saat ini berlanjut.':'<b>Aman:</b> cash diperkirakan tetap positif sampai '+mn[N-1]+' ('+rp(akhir[N-1])+'), dengan arus kas rata-rata '+rp(sum(neto)/N)+' per bulan.';
+  if(dsr.shu!==null)ink.innerHTML+=' Pembanding: rata-rata SHU Masuk di Buku_Kas pada bulan dasar yang sama '+rp(dsr.shu)+' per bulan (arus kas bersih di atas seharusnya mendekati angka ini).';c2.appendChild(ink);
+  /* pengaturan */
+  const st=el('div','bar');st.style.cssText='display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:12px';
+  const pw=el('span','sub','Estimasi dana bersih dari omzet kotor belum cair');const pi=document.createElement('input');pi.type='text';pi.inputMode='numeric';pi.style.width='64px';pi.value=String(Math.round(rasio*100));pi.onchange=()=>{const v=cbAngka(pi.value);CB.pot=Math.max(1,Math.min(100,v||75));cbSimpan();rCB()};
+  const hs=document.createElement('select');[[3,'3 bulan'],[6,'6 bulan']].forEach(a=>{const o=document.createElement('option');o.value=a[0];o.textContent=a[1];hs.appendChild(o)});hs.value=String(N);hs.onchange=()=>{CB.n=+hs.value;cbSimpan();rCB()};
+  const rs=el('button','btn','Reset pengaturan');rs.onclick=()=>{CB=Object.assign({},CB_DEF,{plus:[],minus:[]});cbSimpan();rCB()};
+  st.appendChild(pw);st.appendChild(pi);st.appendChild(el('span','sub','%'));st.appendChild(el('span','sub','Horizon'));st.appendChild(hs);st.appendChild(rs);c2.appendChild(st);
+  if(dsr.rasio!==null&&CB.pot===null)c2.appendChild(el('div','d','Persentase otomatis dari rasio pendapatan bersih terhadap omzet kotor 3 bulan penuh terakhir ('+Math.round(dsr.rasio*100)+'%).'));
+  card('#c-cb3','Saldo kas akhir per bulan','Saldo bila pola rata-rata berlanjut dan rencana tambahan Anda terjadi. Batang negatif ditampilkan 0; lihat tabel untuk angkanya.',[{n:'Saldo akhir',c:'var(--gold)'}],
+    stackedBars(mn,[{n:'Saldo akhir',c:'var(--gold)',v:akhir.map(v=>Math.max(0,v))}],{fmt:rp,axisFmt:axM,label:'Saldo kas akhir per bulan'}),
+    ()=>table(['Bulan','Saldo awal','Arus kas bersih','Saldo akhir'],mn.map((m,j)=>[m,num(awal[j]),num(neto[j]),num(akhir[j])])));
 }
 
 function rRing(){
